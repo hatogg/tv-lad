@@ -44,6 +44,10 @@ class Prefs(ctx: Context) {
         get() = arr(sp.getString("hiddenApps", null))
         set(v) = sp.edit().putString("hiddenApps", JSONArray(v).toString()).apply()
 
+    var lightTheme: Boolean
+        get() = sp.getBoolean("lightTheme", false)
+        set(v) = sp.edit().putBoolean("lightTheme", v).apply()
+
     var wallpaper: Int
         get() = sp.getInt("wallpaper", 0)
         set(v) = sp.edit().putInt("wallpaper", v).apply()

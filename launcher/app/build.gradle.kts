@@ -12,8 +12,8 @@ android {
         applicationId = "ua.x44to.lad"
         minSdk = 21
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "2.0"
     }
 
     // Один ключ для всіх збірок — щоб нова версія ставилася поверх старої.

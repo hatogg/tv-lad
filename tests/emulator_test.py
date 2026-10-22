@@ -165,7 +165,9 @@ if lad_apk and os.path.exists(lad_apk):
         tv.sh("input keyevent --longpress KEYCODE_DPAD_CENTER")
         time.sleep(2)
         screencap("lad-3-input-menu")
-        assert "що підключено" in ui_text(), "меню входу не відкрилось від утримання OK"
+        dump = ui_text()
+        assert "що підключено" in dump, "меню входу не відкрилось від утримання OK; екран: " + " | ".join(
+            sorted(set(__import__("re").findall(r'text="([^"]+)"', dump)))[:40])
         tv.sh("input keyevent KEYCODE_DPAD_DOWN")
         tv.sh("input keyevent KEYCODE_DPAD_CENTER")
         time.sleep(2)
@@ -196,13 +198,14 @@ if lad_apk and os.path.exists(lad_apk):
 
     def lad_settings():
         for _ in range(10):
-            tv.sh("input keyevent KEYCODE_DPAD_DOWN")
-        for _ in range(10):
+            tv.sh("input keyevent KEYCODE_DPAD_UP")
+        for _ in range(3):
             tv.sh("input keyevent KEYCODE_DPAD_RIGHT")
         time.sleep(1)
         tv.sh("input keyevent KEYCODE_DPAD_CENTER")
         time.sleep(2)
         screencap("lad-6-settings")
+        assert "Налаштування «Лад»" in ui_text(), "налаштування не відкрились"
         tv.sh("input keyevent KEYCODE_BACK")
         assert lad_alive()
         return ""

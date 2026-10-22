@@ -29,6 +29,7 @@ class LadState(private val ctx: Context, var demo: Boolean) {
     val hidden = mutableStateMapOf<String, Boolean>()
     var wallpaper by mutableIntStateOf(prefs.wallpaper)
     var switchMode by mutableIntStateOf(prefs.switchMode)
+    var light by mutableStateOf(prefs.lightTheme)
     var hintShown by mutableStateOf(prefs.hintShown)
     private val io = Executors.newSingleThreadExecutor()
 
@@ -134,6 +135,11 @@ class LadState(private val ctx: Context, var demo: Boolean) {
     fun pickWallpaper(n: Int) {
         wallpaper = n
         prefs.wallpaper = n
+    }
+
+    fun setLight(v: Boolean) {
+        light = v
+        prefs.lightTheme = v
     }
 
     fun setMode(n: Int) {
