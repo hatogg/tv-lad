@@ -137,6 +137,19 @@ class FakeTv(unittest.TestCase):
         with self.assertRaises(AdbError):
             self.act.install_lad(os.path.join(self.dir, "missing.apk"))
 
+    def test_report_and_list(self):
+        rep = self.tv.report()
+        self.assertIn("KIVI 43U750NB", rep)
+        self.assertIn("## Хто їсть пам'ять", rep)
+        lst = os.path.join(self.dir, "list.txt")
+        with open(lst, "w", encoding="utf-8") as f:
+            f.write("# від Claude\ncom.google.android.play.games\nbad name\ncom.kivi.tvguide  # гід\n")
+        self.assertEqual(Actions.read_list(lst), ["com.google.android.play.games", "com.kivi.tvguide"])
+        js = os.path.join(self.dir, "list.json")
+        with open(js, "w", encoding="utf-8") as f:
+            f.write('{"disable": ["com.netflix.ninja", "com.netflix.ninja"]}')
+        self.assertEqual(Actions.read_list(js), ["com.netflix.ninja"])
+
     def test_bad_package_name(self):
         with self.assertRaises(AdbError):
             self.tv.disable("com.x; reboot")

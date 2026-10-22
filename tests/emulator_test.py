@@ -154,33 +154,37 @@ if lad_apk and os.path.exists(lad_apk):
 
     def lad_demo():
         tv.sh("am start -n ua.x44to.lad/.MainActivity --ez lad.demo true")
-        time.sleep(4)
-        screencap("lad-2-inputs")
+        time.sleep(5)
+        screencap("lad-2-top-shelf-input")
         tv.sh("input keyevent --longpress KEYCODE_DPAD_CENTER")
         time.sleep(2)
         screencap("lad-3-input-menu")
         tv.sh("input keyevent KEYCODE_BACK")
         time.sleep(1)
-        for _ in range(3):
-            tv.sh("input keyevent KEYCODE_DPAD_DOWN")
-        time.sleep(1)
-        screencap("lad-4-apps")
-        tv.sh("input keyevent KEYCODE_BACK")
+        for _ in range(4):
+            tv.sh("input keyevent KEYCODE_DPAD_RIGHT")
+        time.sleep(2)
+        screencap("lad-4-top-shelf-app")
+        tv.sh("input keyevent KEYCODE_DPAD_DOWN")
+        tv.sh("input keyevent KEYCODE_DPAD_DOWN")
+        time.sleep(2)
+        screencap("lad-5-grid")
         assert lad_alive(), "«Лад» упав під час навігації"
         crashes = tv.sh("logcat -d -b crash 2>/dev/null | tail -40")
         assert "ua.x44to.lad" not in crashes, crashes
         return ""
 
-    step("«Лад»: входи, меню, програми (без падінь)", lad_demo)
+    step("«Лад»: вітрина, меню, сітка (без падінь)", lad_demo)
 
     def lad_settings():
-        tv.sh("input keyevent KEYCODE_MOVE_HOME")
-        for _ in range(6):
-            tv.sh("input keyevent KEYCODE_DPAD_UP")
-        tv.sh("input keyevent KEYCODE_DPAD_RIGHT")
+        for _ in range(10):
+            tv.sh("input keyevent KEYCODE_DPAD_DOWN")
+        for _ in range(10):
+            tv.sh("input keyevent KEYCODE_DPAD_RIGHT")
+        time.sleep(1)
         tv.sh("input keyevent KEYCODE_DPAD_CENTER")
         time.sleep(2)
-        screencap("lad-5-settings")
+        screencap("lad-6-settings")
         tv.sh("input keyevent KEYCODE_BACK")
         assert lad_alive()
         return ""

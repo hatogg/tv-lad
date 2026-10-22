@@ -121,6 +121,8 @@ class FakeAdb:
                 return "priority=-1000\ncom.android.tv.settings/.FallbackHome\n"
             return "priority=0\nandroid/com.android.internal.app.ResolverActivity\n" if "com.google.android.tvlauncher" not in h \
                 else "priority=0\ncom.google.android.tvlauncher/.MainActivity\n"
-        if cmd.startswith(("am ", "input ", "monkey ", "cmd package bg-dexopt-job")):
+        if cmd.startswith(("am ", "input ", "monkey ", "cmd package bg-dexopt-job", "sm fstrim")):
             return ""
+        if cmd.startswith(("uptime", "top ", "dumpsys", "df -h", "for ", "settings get global window", "getprop ro.")):
+            return "(уявні дані)\n"
         raise AdbError(f"FakeAdb: невідома команда {cmd}")

@@ -5,10 +5,10 @@ import html
 import os
 import sys
 
-from PyQt6.QtCore import QSettings, Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QIcon
+from PyQt6.QtCore import QSettings, QStandardPaths, Qt, QThread, QTimer, QUrl, pyqtSignal
+from PyQt6.QtGui import QColor, QDesktopServices, QFont, QIcon
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QComboBox, QFrame, QGridLayout, QHBoxLayout, QHeaderView,
-                             QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox, QProgressBar, QPushButton,
+                             QFileDialog, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton,
                              QScrollArea, QSizePolicy, QSpinBox, QStackedWidget, QTreeWidget, QTreeWidgetItem,
                              QVBoxLayout, QWidget)
 
@@ -713,6 +713,92 @@ class YouTubePage(Page):
         self.win.run(lambda: self.win.actions.install_smarttube(prog, hide), ok, fail)
 
 
+class DiagPage(Page):
+    def __init__(self, win):
+        super().__init__(win, "Діагностика", "Що саме гальмує: пам'ять, процесор, місце, знос вбудованої пам'яті й усі програми — в одному файлі.")
+        rep = Card("Звіт про телевізор", "Займає хвилину. Файл можна надіслати Claude чи майстру — за ним видно, що вимкнути і чи не "
+                                        "зношена пам'ять. Особистих даних у звіті немає: лише технічні показники й назви програм.")
+        self.btn = button("Зібрати звіт", "primary", self.collect)
+        self.btn_open = button("Відкрити теку зі звітами", slot=self.open_dir)
+        rep.row(self.btn, self.btn_open)
+        self.path = label("", "ok")
+        rep.lay.addWidget(self.path)
+        self.preview = QPlainTextEdit()
+        self.preview.setReadOnly(True)
+        self.preview.setMinimumHeight(260)
+        self.preview.setStyleSheet("font-family: Consolas, 'DejaVu Sans Mono', monospace; font-size: 9pt; background: #12151A; "
+                                   "border: 1px solid #232934; border-radius: 10px;")
+        self.preview.hide()
+        rep.lay.addWidget(self.preview)
+        self.lay.addWidget(rep)
+
+        lst = Card("Застосувати список", "Отримали список програм для вимкнення (.txt — по одній у рядку, або .json)? "
+                                        "Системне, без чого телевізор не працює, однаково не вимкнеться. Усе можна повернути у «Відновленні».")
+        lst.row(button("Обрати файл зі списком…", slot=self.apply_list))
+        self.lay.addWidget(lst)
+        self.finish()
+
+    @staticmethod
+    def folder() -> str:
+        base = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation) or os.path.expanduser("~")
+        d = os.path.join(base, "TVLad")
+        os.makedirs(d, exist_ok=True)
+        return d
+
+    def collect(self):
+        self.btn.setEnabled(False)
+        self.path.setText("Збираю… (до хвилини)")
+
+        def work():
+            text = self.win.tv.report()
+            import time as _t
+            p = os.path.join(self.folder(), f"tv-report-{_t.strftime('%Y%m%d-%H%M')}.txt")
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(text)
+            return p, text
+
+        def ok(res):
+            p, text = res
+            self.btn.setEnabled(True)
+            self.path.setText(f"Збережено: {p}")
+            self.preview.setPlainText(text)
+            self.preview.show()
+            QApplication.clipboard().setText(p)
+            self.win.toast("Звіт готовий ✓ шлях до файлу скопійовано")
+
+        self.win.run(work, ok, lambda e: (self.btn.setEnabled(True), self.path.setText(""), self.win.error(e)))
+
+    def open_dir(self):
+        QDesktopServices.openUrl(QUrl.fromLocalFile(self.folder()))
+
+    def apply_list(self):
+        if self.win.sync:
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Список програм", self.folder(), "Списки (*.txt *.json);;Усі файли (*)")
+        if not path:
+            return
+        try:
+            pkgs = Actions.read_list(path)
+        except (OSError, UnicodeDecodeError) as e:
+            self.win.error(f"Не вдалося прочитати файл: {e}")
+            return
+        if not pkgs:
+            self.win.error("У файлі немає назв програм.")
+            return
+        if not self.win.confirm("Вимкнути програми зі списку?", f"Буде вимкнено {len(pkgs)}:\n\n• " +
+                                "\n• ".join(catalog.pretty(p) + f"  ({p})" for p in pkgs[:25]) + ("\n…" if len(pkgs) > 25 else "")):
+            return
+
+        def done(res):
+            ok, bad = res
+            msg = f"Вимкнено: {len(ok)}"
+            if bad:
+                msg += f" · пропущено (захищені або немає на телевізорі): {len(bad)}"
+            self.win.toast(msg)
+
+        self.win.run(lambda: self.win.actions.disable(pkgs), done, self.win.error)
+
+
 class RestorePage(Page):
     def __init__(self, win):
         super().__init__(win, "Відновлення", "Усе, що «ТВ Лад» змінював на цьому телевізорі, записано — і можна повернути одним натисканням.")
@@ -788,8 +874,8 @@ class Main(QMainWindow):
         sl.addWidget(label("для телевізорів KIVI та інших Android TV", "brandSub"))
         sl.addSpacing(18)
         self.stack = QStackedWidget()
-        self.pages = [ConnectPage(self), SpeedPage(self), AppsPage(self), HomePage(self), YouTubePage(self), RestorePage(self)]
-        names = ["Підключення", "Прискорення", "Програми", "Головний екран", "YouTube без реклами", "Відновлення"]
+        self.pages = [ConnectPage(self), DiagPage(self), SpeedPage(self), AppsPage(self), HomePage(self), YouTubePage(self), RestorePage(self)]
+        names = ["Підключення", "Діагностика", "Прискорення", "Програми", "Головний екран", "YouTube без реклами", "Відновлення"]
         self.nav = QButtonGroup(self)
         self.nav.setExclusive(True)
         self.nav_btns = []
@@ -823,7 +909,7 @@ class Main(QMainWindow):
         h.addLayout(right, 1)
         self.setCentralWidget(root)
         self.sig_status.connect(self.toast)
-        self.sig_progress.connect(lambda v: self.pages[4].progress.setValue(v))
+        self.sig_progress.connect(lambda v: self.pages[5].progress.setValue(v))
         self.nav_btns[0].setChecked(True)
         self.set_connected(False)
 
@@ -940,9 +1026,11 @@ def screenshots(folder: str, history_dir: str) -> list[str]:
     win.resize(1080, 720)
     win.show()
     out = []
-    names = ["1-connect", "2-speed", "3-apps", "4-home", "5-youtube", "6-restore"]
+    names = ["1-connect", "2-diag", "3-speed", "4-apps", "5-home", "6-youtube", "7-restore"]
     for i, n in enumerate(names):
-        if i == 5:
+        if i == 1:
+            win.pages[1].collect()
+        if i == 6:
             win.actions.disable(["com.google.android.play.games", "com.google.android.videos"])
             win.actions.set_animations(0.5)
             win.actions.set_home(catalog.PROJECTIVY)

@@ -72,27 +72,46 @@ fun openSystemSettings(ctx: Activity) {
     }
 }
 
-/** Банер (для телевізійних програм) або значок. */
-fun loadArt(ctx: Context, app: AppEntry): Pair<ImageBitmap, Boolean>? {
+/** Зображення програми: банер або значок, його розмита копія для «вітрини» і головний колір. */
+class AppArt(val image: ImageBitmap, val banner: Boolean, val blur: ImageBitmap, val color: Int)
+
+fun loadArt(ctx: Context, app: AppEntry): AppArt? {
     val pm = ctx.packageManager
     return try {
         val ai = pm.getActivityInfo(ComponentName(app.pkg, app.activity), 0)
         val banner: Drawable? = ai.loadBanner(pm) ?: ai.applicationInfo.loadBanner(pm)
-        if (banner != null) {
-            Pair(draw(banner, 320, 180), true)
-        } else {
-            Pair(draw(ai.loadIcon(pm), 192, 192), false)
-        }
+        val bmp = if (banner != null) draw(banner, 320, 180) else draw(ai.loadIcon(pm), 192, 192)
+        // «розмиття» без важких ефектів: зменшуємо до кількох пікселів — при розтягуванні виходить м'яке тло
+        val tiny = Bitmap.createScaledBitmap(bmp, 16, 9, true)
+        AppArt(bmp.asImageBitmap(), banner != null, tiny.asImageBitmap(), average(tiny))
     } catch (e: Exception) {
         null
     }
 }
 
-private fun draw(d: Drawable, w: Int, h: Int): ImageBitmap {
+private fun draw(d: Drawable, w: Int, h: Int): Bitmap {
     val iw = if (d.intrinsicWidth > 0) d.intrinsicWidth else w
     val ih = if (d.intrinsicHeight > 0) d.intrinsicHeight else h
     val scale = minOf(w.toFloat() / iw, h.toFloat() / ih, 2f)
-    return d.toBitmap((iw * scale).toInt().coerceAtLeast(1), (ih * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888).asImageBitmap()
+    return d.toBitmap((iw * scale).toInt().coerceAtLeast(1), (ih * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+}
+
+/** Середній колір непрозорих пікселів (для тла плитки й «вітрини»). */
+private fun average(b: Bitmap): Int {
+    var r = 0L
+    var g = 0L
+    var bl = 0L
+    var n = 0L
+    for (x in 0 until b.width) for (y in 0 until b.height) {
+        val c = b.getPixel(x, y)
+        if ((c ushr 24) < 128) continue
+        r += (c shr 16) and 0xFF
+        g += (c shr 8) and 0xFF
+        bl += c and 0xFF
+        n++
+    }
+    if (n == 0L) return 0xFF3A3A3C.toInt()
+    return (0xFF shl 24) or ((r / n).toInt() shl 16) or ((g / n).toInt() shl 8) or (bl / n).toInt()
 }
 
 // ───────── входи телевізора ─────────

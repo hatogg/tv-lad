@@ -195,6 +195,14 @@ class TV:
         after = self.free_kb()
         return max(0, after - before)
 
+    def fstrim(self) -> bool:
+        """Повідомити пам'яті eMMC про звільнені блоки (TRIM) — запис знову швидшає. Не всюди дозволено."""
+        try:
+            out = self.sh("sm fstrim", timeout=600)
+        except AdbError:
+            return False
+        return "error" not in out.lower() and "exception" not in out.lower() and "unknown" not in out.lower()
+
     def kill_background(self) -> None:
         self.sh("am kill-all")
 
@@ -245,3 +253,81 @@ class TV:
 
     def launch(self, pkg: str) -> None:
         self.sh(f"monkey -p {check_pkg(pkg)} -c android.intent.category.LEANBACK_LAUNCHER 1")
+
+    # ── діагностика ──
+    REPORT = [
+        ("Пристрій", "getprop ro.product.brand; getprop ro.product.model; getprop ro.board.platform; getprop ro.hardware; "
+                     "getprop ro.build.version.release; getprop ro.build.display.id; getprop ro.build.fingerprint"),
+        ("Час роботи", "uptime"),
+        ("Оперативна пам'ять", "cat /proc/meminfo | head -20"),
+        ("Хто їсть пам'ять", "dumpsys meminfo | sed -n '/Total PSS by process/,/Total PSS by OOM/p' | head -45"),
+        ("Процесор зараз", "top -n 1 -m 15 2>/dev/null || top -b -n 1 | head -25"),
+        ("Навантаження процесора (останні хвилини)", "dumpsys cpuinfo | head -30"),
+        ("Сховище", "df -h 2>/dev/null || df"),
+        ("Розміри програм", "dumpsys diskstats"),
+        ("Знос пам'яті eMMC", "for f in /sys/class/mmc_host/mmc*/mmc*/life_time /sys/class/mmc_host/mmc*/mmc*/pre_eol_info "
+                              "/sys/class/mmc_host/mmc*/mmc*/name /sys/class/mmc_host/mmc*/mmc*/manfid; do echo \"$f: $(cat $f 2>/dev/null)\"; done"),
+        ("Температура", "for z in /sys/class/thermal/thermal_zone*; do echo \"$(cat $z/type 2>/dev/null): $(cat $z/temp 2>/dev/null)\"; done"),
+        ("Головний екран", "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null"),
+        ("Анімації", "settings get global window_animation_scale; settings get global transition_animation_scale; "
+                     "settings get global animator_duration_scale"),
+        ("Програми користувача", "pm list packages -3"),
+        ("Системні програми", "pm list packages -s"),
+        ("Вимкнені програми", "pm list packages -d"),
+        ("Запущені служби", "dumpsys activity services | grep -E 'ServiceRecord\\{' | sed 's/.* u0 //' | sort | uniq | head -120"),
+        ("Входи телевізора", "dumpsys tv_input 2>/dev/null | head -80"),
+    ]
+
+    def report(self, progress=None) -> str:
+        """Звіт про стан телевізора (для аналізу, що гальмує)."""
+        import time as _t
+        out = [f"# ТВ Лад — звіт {_t.strftime('%Y-%m-%d %H:%M')}", ""]
+        try:
+            i = self.info()
+            out += [f"Модель: {i.title} · Android {i.android} (SDK {i.sdk})",
+                    f"Оперативна пам'ять: {i.ram_total_kb // 1024} МБ, вільно ≈ {i.ram_free_kb // 1024} МБ",
+                    f"Вбудована пам'ять: вільно {i.storage_free_kb // 1024} МБ з {i.storage_total_kb // 1024} МБ", ""]
+        except AdbError as e:
+            out.append(f"(відомості недоступні: {e})")
+        for n, (title, cmd) in enumerate(self.REPORT):
+            if progress:
+                progress(n, len(self.REPORT))
+            try:
+                text = self.sh(cmd, timeout=120).rstrip()
+            except AdbError as e:
+                text = f"(немає даних: {e})"
+            if title == "Розміри програм":
+                text = summarize_diskstats(text) or text[:3000]
+            out += [f"## {title}", "```", text or "(порожньо)", "```", ""]
+        return "\n".join(out)
+
+
+def summarize_diskstats(out: str) -> str:
+    """Найбільші програми з `dumpsys diskstats` (Android 8+; на старших — порожньо)."""
+    import json as _json
+
+    def arr(name):
+        m = re.search(r"^" + re.escape(name) + r": (\[.*\])\s*$", out, re.M)
+        if not m:
+            return None
+        try:
+            return _json.loads(m.group(1))
+        except ValueError:
+            return None
+
+    names, apps, data, cache = arr("Package Names"), arr("App Sizes"), arr("App Data Sizes"), arr("Cache Sizes")
+    head = "\n".join(l for l in out.splitlines() if l.startswith(("Data-Free", "Cache-Free", "System-Free", "Latency")))
+    if not names or not apps:
+        return head
+    rows = []
+    for k, p in enumerate(names):
+        a = apps[k] if k < len(apps) else 0
+        d = data[k] if data and k < len(data) else 0
+        c = cache[k] if cache and k < len(cache) else 0
+        rows.append((a + d + c, p, a, d, c))
+    rows.sort(reverse=True)
+    lines = [head, "", f"{'усього МБ':>9} {'програма':>9} {'дані':>7} {'кеш':>7}  пакет"]
+    for t, p, a, d, c in rows[:30]:
+        lines.append(f"{t / 1048576:9.0f} {a / 1048576:9.0f} {d / 1048576:7.0f} {c / 1048576:7.0f}  {p}")
+    return "\n".join(lines)
+

@@ -14,7 +14,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executors
 
@@ -24,7 +23,7 @@ class LadState(private val ctx: Context, var demo: Boolean) {
     val apps = mutableStateListOf<AppEntry>()
     val inputs = mutableStateListOf<TvIn>()
     val favorites = mutableStateListOf<String>()
-    val art = mutableStateMapOf<String, Pair<ImageBitmap, Boolean>>()
+    val art = mutableStateMapOf<String, AppArt>()
     val kinds = mutableStateMapOf<String, Kind>()
     val hidden = mutableStateMapOf<String, Boolean>()
     var wallpaper by mutableIntStateOf(prefs.wallpaper)

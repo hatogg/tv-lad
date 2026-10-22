@@ -79,6 +79,7 @@ class Actions:
         """Прискорити все разом: анімації 0,5×, кеш, фонові програми."""
         self.set_animations(0.5)
         freed = self.tv.trim_caches()
+        self.tv.fstrim()
         self.tv.kill_background()
         self.h.log(f"Прискорення: кеш −{freed // 1024} МБ, фонові програми вивантажено")
         return {"freed_kb": freed}
@@ -225,4 +226,24 @@ class Actions:
         if make_home:
             self.set_home(catalog.LAD)
         return catalog.LAD
+
+    # ── список від Claude / з іншого телевізора ──
+    @staticmethod
+    def read_list(path: str) -> list[str]:
+        """JSON {"disable": [...]} або простий текст — по пакету в рядку (# — коментар)."""
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        pkgs: list[str] = []
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict):
+                data = data.get("disable") or []
+            pkgs = [str(p).strip() for p in data]
+        except ValueError:
+            for line in text.splitlines():
+                line = line.split("#", 1)[0].strip()
+                if line:
+                    pkgs.append(line)
+        from .adb import PKG_RE
+        return [p for p in dict.fromkeys(pkgs) if PKG_RE.match(p)]
 
