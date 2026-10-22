@@ -247,3 +247,18 @@ class Actions:
         from .adb import PKG_RE
         return [p for p in dict.fromkeys(pkgs) if PKG_RE.match(p)]
 
+    def install_apks(self, paths: list[str], progress=None) -> tuple[list[str], list[str]]:
+        """Встановити свої APK з комп'ютера. Повертає (встановлені, помилки «файл: причина»)."""
+        ok, bad = [], []
+        for n, p in enumerate(paths):
+            if progress:
+                progress(n, len(paths), os.path.basename(p))
+            try:
+                self.tv.install(p)
+                ok.append(os.path.basename(p))
+            except AdbError as e:
+                bad.append(f"{os.path.basename(p)}: {e}")
+        if ok:
+            self.h.log("Встановлено APK: " + ", ".join(ok))
+        return ok, bad
+

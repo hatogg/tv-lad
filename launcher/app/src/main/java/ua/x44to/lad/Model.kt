@@ -39,6 +39,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("favoritesSeeded", false)
         set(v) = sp.edit().putBoolean("favoritesSeeded", v).apply()
 
+    /** Програми, сховані з головного екрана (самі програми лишаються встановленими). */
+    var hiddenApps: List<String>
+        get() = arr(sp.getString("hiddenApps", null))
+        set(v) = sp.edit().putString("hiddenApps", JSONArray(v).toString()).apply()
+
     var wallpaper: Int
         get() = sp.getInt("wallpaper", 0)
         set(v) = sp.edit().putInt("wallpaper", v).apply()

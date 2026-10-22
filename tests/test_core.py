@@ -154,6 +154,14 @@ class FakeTv(unittest.TestCase):
         p = self.adb.screencap(os.path.join(self.dir, "s.png"))
         self.assertTrue(open(p, "rb").read().startswith(b"\x89PNG"))
 
+    def test_install_apks(self):
+        a = os.path.join(self.dir, "my-app.apk")
+        open(a, "wb").write(b"PK")
+        ok, bad = self.act.install_apks([a])
+        self.assertEqual(ok, ["my-app.apk"])
+        self.assertEqual(bad, [])
+        self.assertIn("com.example.app", self.adb.user)
+
     def test_bad_package_name(self):
         with self.assertRaises(AdbError):
             self.tv.disable("com.x; reboot")

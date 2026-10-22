@@ -565,6 +565,56 @@ class AppsPage(Page):
         return done
 
 
+class InstallPage(Page):
+    def __init__(self, win):
+        super().__init__(win, "Встановити APK", "Будь-які програми з комп'ютера — без Google Play і без флешки. "
+                                              "Можна просто перетягнути .apk файли у це вікно.")
+        card = Card("Ваші APK", "Оберіть один чи кілька файлів .apk. Якщо програма вже є — оновиться, дані збережуться.")
+        self.btn = button("Обрати APK…", "primary", self.pick)
+        card.row(self.btn)
+        self.state = label("", "muted")
+        card.lay.addWidget(self.state)
+        self.lay.addWidget(card)
+        tips = Card("Де брати APK", "Найбезпечніше — з офіційних сторінок розробників (GitHub-релізи, сайт програми) або з APKMirror, "
+                                    "де файли перевіряють на підпис. Програми для телевізора (Android TV) зручніші з пультом. "
+                                    "Сховати зайві плитки з головного екрана «Лад» — утримання OK або кнопка Menu на плитці → «Сховати з екрана». "
+                                    "Повністю вимкнути програму — сторінка «Програми».")
+        self.lay.addWidget(tips)
+        self.finish()
+
+    def pick(self):
+        if self.win.sync:
+            return
+        paths, _ = QFileDialog.getOpenFileNames(self, "Оберіть APK", os.path.expanduser("~"), "Програми Android (*.apk)")
+        if paths:
+            self.install(paths)
+
+    def install(self, paths):
+        paths = [p for p in paths if p.lower().endswith(".apk")]
+        if not paths:
+            return
+        if not self.win.tv:
+            self.win.error("Спершу підключіться до телевізора.")
+            return
+        self.btn.setEnabled(False)
+        self.state.setText(f"Встановлюю {len(paths)}… (великі програми — до хвилини кожна)")
+
+        def prog(n, total, name):
+            self.win.sig_status.emit(f"Встановлюю {n + 1} з {total}: {name}")
+
+        def done(res):
+            ok, bad = res
+            self.btn.setEnabled(True)
+            text = f"Встановлено: {len(ok)}" + (" — " + ", ".join(ok) if ok else "")
+            if bad:
+                text += "\nНе вдалося:\n" + "\n".join(bad)
+            self.state.setText(text)
+            self.win.toast(f"Встановлено {len(ok)} з {len(paths)}")
+
+        self.win.run(lambda: self.win.actions.install_apks(paths, prog), done,
+                     lambda e: (self.btn.setEnabled(True), self.state.setText(""), self.win.error(e)))
+
+
 class HomePage(Page):
     def __init__(self, win):
         super().__init__(win, "Головний екран", "Замість стандартного екрана з рекламою й «рекомендаціями» — ваш, охайний і швидкий.")
@@ -903,8 +953,8 @@ class Main(QMainWindow):
         sl.addWidget(label("для телевізорів KIVI та інших Android TV", "brandSub"))
         sl.addSpacing(18)
         self.stack = QStackedWidget()
-        self.pages = [ConnectPage(self), DiagPage(self), SpeedPage(self), AppsPage(self), HomePage(self), YouTubePage(self), RestorePage(self)]
-        names = ["Підключення", "Діагностика", "Прискорення", "Програми", "Головний екран", "YouTube без реклами", "Відновлення"]
+        self.pages = [ConnectPage(self), DiagPage(self), SpeedPage(self), AppsPage(self), InstallPage(self), HomePage(self), YouTubePage(self), RestorePage(self)]
+        names = ["Підключення", "Діагностика", "Прискорення", "Програми", "Встановити APK", "Головний екран", "YouTube без реклами", "Відновлення"]
         self.nav = QButtonGroup(self)
         self.nav.setExclusive(True)
         self.nav_btns = []
@@ -937,10 +987,22 @@ class Main(QMainWindow):
         right.addWidget(self.statusline)
         h.addLayout(right, 1)
         self.setCentralWidget(root)
+        self.setAcceptDrops(True)
         self.sig_status.connect(self.toast)
-        self.sig_progress.connect(lambda v: self.pages[5].progress.setValue(v))
+        self.sig_progress.connect(lambda v: self.pages[6].progress.setValue(v))
         self.nav_btns[0].setChecked(True)
         self.set_connected(False)
+
+    # ── перетягування .apk у вікно ──
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasUrls() and any(u.toLocalFile().lower().endswith(".apk") for u in e.mimeData().urls()):
+            e.acceptProposedAction()
+
+    def dropEvent(self, e):
+        paths = [u.toLocalFile() for u in e.mimeData().urls() if u.toLocalFile().lower().endswith(".apk")]
+        if paths:
+            self.go(4)
+            self.pages[4].install(paths)
 
     # ── загальне ──
     def run(self, fn, ok, fail):
@@ -1055,11 +1117,11 @@ def screenshots(folder: str, history_dir: str) -> list[str]:
     win.resize(1080, 720)
     win.show()
     out = []
-    names = ["1-connect", "2-diag", "3-speed", "4-apps", "5-home", "6-youtube", "7-restore"]
+    names = ["1-connect", "2-diag", "3-speed", "4-apps", "5-install", "6-home", "7-youtube", "8-restore"]
     for i, n in enumerate(names):
         if i == 1:
             win.pages[1].collect()
-        if i == 6:
+        if i == 7:
             win.actions.disable(["com.google.android.play.games", "com.google.android.videos"])
             win.actions.set_animations(0.5)
             win.actions.set_home(catalog.PROJECTIVY)

@@ -23,6 +23,7 @@ class LadState(private val ctx: Context, var demo: Boolean) {
     val apps = mutableStateListOf<AppEntry>()
     val inputs = mutableStateListOf<TvIn>()
     val favorites = mutableStateListOf<String>()
+    val hiddenApps = mutableStateListOf<String>().apply { addAll(prefs.hiddenApps) }
     val art = mutableStateMapOf<String, AppArt>()
     val kinds = mutableStateMapOf<String, Kind>()
     val hidden = mutableStateMapOf<String, Boolean>()
@@ -64,6 +65,18 @@ class LadState(private val ctx: Context, var demo: Boolean) {
     }
 
     fun isFavorite(pkg: String) = pkg in favorites
+
+    fun isHidden(pkg: String) = pkg in hiddenApps
+
+    fun toggleHiddenApp(pkg: String) {
+        if (pkg in hiddenApps) {
+            hiddenApps.remove(pkg)
+        } else {
+            hiddenApps.add(pkg)
+            if (pkg in favorites) toggleFavorite(pkg)
+        }
+        prefs.hiddenApps = hiddenApps.toList()
+    }
 
     fun toggleFavorite(pkg: String) {
         if (pkg in favorites) favorites.remove(pkg) else favorites.add(pkg)

@@ -56,7 +56,7 @@ def run(out_path: str, with_adb: bool = False, shots: str | None = None) -> int:
         from .app import Main, make_app, screenshots
         app = make_app([sys.argv[0]])  # noqa: F841 — має жити до кінця перевірки
         w = Main()
-        assert len(w.pages) == 7
+        assert len(w.pages) == 8
         w.close()
         if shots:
             files = screenshots(shots, tmp)

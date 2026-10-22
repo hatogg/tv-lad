@@ -234,7 +234,7 @@ fun LadHome(state: LadState, act: Activity) {
 
             val shownInputs = state.inputs.filter { state.hidden[it.id] != true }
             val favApps = state.favorites.mapNotNull { p -> state.apps.firstOrNull { it.pkg == p } }
-            val rest = state.apps.filter { it.pkg !in state.favorites }
+            val rest = state.apps.filter { it.pkg !in state.favorites && it.pkg !in state.hiddenApps }
 
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 26.dp, bottom = 60.dp)) {
                 item { Header(wp, side) }
@@ -596,6 +596,10 @@ private fun AppMenu(state: LadState, a: AppEntry, act: Activity, onDismiss: () -
             MenuItem("Перемістити ліворуч", Icons.Rounded.ChevronLeft) { state.moveFavorite(a.pkg, -1); onDismiss() }
             MenuItem("Перемістити праворуч", Icons.Rounded.ChevronRight) { state.moveFavorite(a.pkg, 1); onDismiss() }
         }
+        MenuItem("Сховати з екрана", Icons.Rounded.VisibilityOff) {
+            state.toggleHiddenApp(a.pkg)
+            onDismiss()
+        }
         MenuItem("Про програму (видалити, очистити)", Icons.Rounded.Info) { onDismiss(); openAppInfo(act, a.pkg) }
     }
     FocusFirst(fr)
@@ -642,6 +646,14 @@ private fun SettingsMenu(state: LadState, act: Activity, onInput: (TvIn) -> Unit
             val modes = listOf("Автоматично (радимо)", "Лише через системний ТВ", "Вбудований екран «Лад»")
             items(modes.size) { n ->
                 MenuItem(modes[n], null, selected = state.switchMode == n) { state.setMode(n) }
+            }
+            val hiddenApps = state.apps.filter { state.isHidden(it.pkg) }
+            if (hiddenApps.isNotEmpty()) {
+                item { Spacer(Modifier.height(4.dp)) }
+                item { Text("Сховані програми", color = Color(0x99FFFFFF), fontSize = 13.sp) }
+                items(hiddenApps, key = { "h:" + it.pkg }) { a ->
+                    MenuItem("Показати: ${a.label}", Icons.Rounded.Visibility) { state.toggleHiddenApp(a.pkg) }
+                }
             }
             if (hiddenInputs.isNotEmpty()) {
                 item { Spacer(Modifier.height(4.dp)) }
