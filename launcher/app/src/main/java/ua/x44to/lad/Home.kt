@@ -191,8 +191,9 @@ fun LadHome(state: LadState, act: Activity) {
     val inRow = rememberLazyListState()
     val favRow = rememberLazyListState()
     var firstHasFocus by remember { mutableStateOf(false) }
-    // яка картка зараз у фокусі; кнопки вгорі стають доступні лише після того, як фокус уже побував на картках,
-    // інакше Android 11 ставить початковий фокус на «Налаштування ТВ»
+    // яка картка зараз у фокусі; на Android 9+ кнопки вгорі стають доступні лише після того, як фокус уже побував
+    // на картках, інакше система ставить початковий фокус на «Налаштування ТВ». На Android 7–8 так не роблять:
+    // там фокус на картку ставимо самі, і без доступних кнопок він не встановлюється.
     var focusedKey by remember { mutableStateOf<String?>(null) }
     var cardSeen by remember { mutableStateOf(false) }
     var handledTick by remember { mutableIntStateOf(state.homeTick) }
@@ -226,7 +227,7 @@ fun LadHome(state: LadState, act: Activity) {
             LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(top = 28.dp, bottom = 48.dp)) {
                 // ключі — щоб картки не створювались заново, коли з'являються входи чи нові програми (інакше губиться фокус)
                 item(key = "header") {
-                    Header(pal, side, buttonsFocusable = cardSeen || !hasCards, onTv = { openSystemSettings(act) }, onLad = { menu = Menu.Settings })
+                    Header(pal, side, buttonsFocusable = cardSeen || !hasCards || android.os.Build.VERSION.SDK_INT < 28, onTv = { openSystemSettings(act) }, onLad = { menu = Menu.Settings })
                 }
                 if (shownInputs.isNotEmpty()) {
                     item(key = "sec:in") { Section("Входи", pal, side) }
