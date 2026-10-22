@@ -288,6 +288,7 @@ fun LadHome(state: LadState, act: Activity) {
                 }
                 if (firstHasFocus) return@LaunchedEffect
             }
+            cardSeen = true // не вдалося (картки не на екрані) — хай кнопки вгорі теж будуть доступні
         }
         when (val m = menu) {
             is Menu.ForInput -> InputMenu(state, pal, m.input) { menu = null }

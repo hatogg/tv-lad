@@ -132,6 +132,8 @@ jobs:
           api-level: ${{ matrix.api }}
           target: android-tv
           arch: x86
+          profile: tv_720p
+          emulator-boot-timeout: 900
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
