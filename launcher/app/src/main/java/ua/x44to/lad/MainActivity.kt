@@ -137,7 +137,7 @@ class LadState(private val ctx: Context, var demo: Boolean) {
         prefs.wallpaper = n
     }
 
-    fun setLight(v: Boolean) {
+    fun chooseLight(v: Boolean) {
         light = v
         prefs.lightTheme = v
     }

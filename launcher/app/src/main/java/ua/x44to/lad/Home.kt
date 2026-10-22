@@ -477,7 +477,7 @@ private fun SettingsMenu(state: LadState, pal: Palette, act: Activity, onInput: 
             item { Label("Тема", pal) }
             item {
                 MenuItem(if (state.light) "Світла" else "Темна", if (state.light) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, pal,
-                    Modifier.focusRequester(fr)) { state.setLight(!state.light) }
+                    Modifier.focusRequester(fr)) { state.chooseLight(!state.light) }
             }
             item { Label("Акцентний колір", pal) }
             items(ACCENTS.size) { n ->
