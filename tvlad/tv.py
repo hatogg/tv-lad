@@ -164,6 +164,12 @@ class TV:
         out = self.sh(f"pm enable {check_pkg(pkg)}")
         return "new state: enabled" in out.lower() or "new state: default" in out.lower()
 
+    def install(self, apk: str) -> None:
+        self.adb.install(apk)
+
+    def abi(self) -> str:
+        return self.sh("getprop ro.product.cpu.abi").strip()
+
     def uninstall(self, pkg: str) -> bool:
         return "success" in self.sh(f"pm uninstall {check_pkg(pkg)}", timeout=120).lower()
 

@@ -1,6 +1,7 @@
 """Уявний телевізор KIVI для самоперевірки й знімків екрана (без справжнього пристрою)."""
 from __future__ import annotations
 
+import os
 import re
 
 from .adb import AdbError
@@ -29,6 +30,13 @@ class FakeAdb:
         self.preferred: str | None = None
         self.log: list[str] = []
 
+    def install(self, apk: str, timeout: float = 600) -> None:
+        name = os.path.basename(apk).lower()
+        pkg = "com.teamsmart.videomanager.tv" if "smarttube" in name else ("ua.x44to.lad" if "lad" in name else "com.example.app")
+        if pkg not in self.user:
+            self.user.append(pkg)
+        self.log.append(f"install {apk}")
+
     # те саме, що в справжнього Adb
     def state(self) -> str:
         return "device"
@@ -44,7 +52,7 @@ class FakeAdb:
         pass
 
     def homes(self) -> list[str]:
-        h = [p for p in ("com.google.android.tvlauncher", "com.spocky.projengmenu") if p in self.all() and p not in self.disabled]
+        h = [p for p in ("com.google.android.tvlauncher", "com.spocky.projengmenu", "ua.x44to.lad") if p in self.all() and p not in self.disabled]
         return h
 
     def all(self) -> list[str]:

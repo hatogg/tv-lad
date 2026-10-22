@@ -1,8 +1,10 @@
 # ТВ Лад: перевірки й збирання.
+#  • launcher — головний екран «Лад» для телевізора (APK)
 #  • test     — логіка без телевізора + знімки вікна (Linux, без екрана)
-#  • emulator — справжній Android TV в емуляторі: підключення по мережі, програми, анімації, кеш, головний екран
-#  • windows  — TVLad.exe (PyInstaller) і його самоперевірка, разом із завантаженням adb від Google
-#  • publish  — exe, знімки й звіти → гілка ci-out
+#  • emulator — справжній Android TV 7.1 і 11 в емуляторі: підключення по мережі, програми, анімації, кеш,
+#               головний екран, встановлення «Лад» — і повернення всього назад
+#  • windows  — TVLad.exe (PyInstaller, з «Лад» усередині) і його самоперевірка, разом із завантаженням adb від Google
+#  • publish  — exe, APK, знімки й звіти → гілка ci-out
 name: build
 
 on:
@@ -14,41 +16,82 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  launcher:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build «Лад»
+        working-directory: launcher
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew assembleRelease --console=plain 2>&1 | tee ../launcher-build.log
+          mkdir -p ../out && cp app/build/outputs/apk/release/app-release.apk ../out/lad-home.apk
+          ls -l ../out
+      - name: Keep the log
+        if: always()
+        run: mkdir -p out && cp launcher-build.log out/ || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: launcher
+          path: out
+
   test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Unit tests
-        run: python -m unittest discover -s tests -p "test_*.py" -v 2>&1 | tee unit.log
+        run: |
+          mkdir -p out
+          python -m unittest discover -s tests -p "test_*.py" -v 2>&1 | tee out/unit.log
       - name: Window screenshots (offscreen)
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-core libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 > /dev/null
           pip install -q -r requirements.txt
-          mkdir -p out
           python main.py --selftest out/selftest-linux.txt --shots out/shots-linux || true
-          cat out/selftest-linux.txt
-          cp unit.log out/
+          cat out/selftest-linux.txt || true
+          cat out/selftest-linux.txt.crash.txt 2>/dev/null || true
           grep -q "RESULT OK" out/selftest-linux.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: linux
           path: out
 
   emulator:
+    needs: launcher
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [25, 30]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+      - uses: actions/download-artifact@v8
+        with:
+          name: launcher
+          path: lad
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -64,7 +107,7 @@ jobs:
           printf 'package x.home;\npublic class Home extends android.app.Activity {}\n' > hl/src/x/home/Home.java
           cat > hl/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="x.home">
-            <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="30" />
+            <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="25" />
             <application android:label="Test Home">
               <activity android:name=".Home" android:exported="true">
                 <intent-filter>
@@ -83,37 +126,42 @@ jobs:
           $BT/zipalign -f 4 hl/unsigned.apk hl/aligned.apk
           keytool -genkeypair -keystore hl/k.jks -storepass android -keypass android -alias k -keyalg RSA -validity 1000 -dname CN=test -noprompt
           $BT/apksigner sign --ks hl/k.jks --ks-pass pass:android --out hl/home.apk hl/aligned.apk
-          ls -l hl/home.apk
-      - name: Android TV emulator test
+      - name: Android TV emulator test (API ${{ matrix.api }})
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: ${{ matrix.api }}
           target: android-tv
           arch: x86
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            mkdir -p out && python tests/emulator_test.py 127.0.0.1 5555 out/emulator.txt hl/home.apk; echo "rc=$?" >> out/emulator.txt
+            mkdir -p out && python tests/emulator_test.py 127.0.0.1 5555 out/emulator-${{ matrix.api }}.txt hl/home.apk lad/lad-home.apk out/shots-${{ matrix.api }}; echo "rc=$?" >> out/emulator-${{ matrix.api }}.txt
       - name: Check
         if: always()
         run: |
-          cat out/emulator.txt || true
-          grep -q "RESULT OK" out/emulator.txt
-      - uses: actions/upload-artifact@v4
+          cat out/emulator-${{ matrix.api }}.txt || true
+          grep -q "RESULT OK" out/emulator-${{ matrix.api }}.txt
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: emulator
+          name: emulator-${{ matrix.api }}
           path: out
 
   windows:
+    needs: launcher
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+      - uses: actions/download-artifact@v8
+        with:
+          name: launcher
+          path: lad
       - name: Build TVLad.exe
         run: |
+          Copy-Item lad\lad-home.apk assets\lad-home.apk
           pip install -q -r requirements.txt pyinstaller
           pyinstaller --noconfirm --onefile --windowed --name TVLad --icon assets/icon.ico --add-data "assets;assets" `
             --exclude-module tkinter --exclude-module PyQt6.QtWebEngineCore --exclude-module PyQt6.QtQml main.py
@@ -121,21 +169,22 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
           $p = Start-Process -FilePath dist\TVLad.exe -ArgumentList "--selftest","out\selftest-win.txt","--adb","--shots","out\shots-win" -Wait -PassThru
-          Get-Content out\selftest-win.txt
+          Get-Content out\selftest-win.txt -ErrorAction SilentlyContinue
+          Get-Content out\selftest-win.txt.crash.txt -ErrorAction SilentlyContinue
           Copy-Item dist\TVLad.exe out\
           if ($p.ExitCode -ne 0) { exit 1 }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: windows
           path: out
 
   publish:
-    needs: [test, emulator, windows]
+    needs: [launcher, test, emulator, windows]
     if: always()
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: ci-out
       - name: Push results to ci-out
@@ -144,7 +193,7 @@ jobs:
         run: |
           cd ci-out
           echo "${GITHUB_SHA}" > commit.txt
-          echo "test=${{ needs.test.result }} emulator=${{ needs.emulator.result }} windows=${{ needs.windows.result }}" > status.txt
+          echo "launcher=${{ needs.launcher.result }} test=${{ needs.test.result }} emulator=${{ needs.emulator.result }} windows=${{ needs.windows.result }}" > status.txt
           git init -q -b ci-out
           git config user.name ci
           git config user.email ci@users.noreply.github.com

@@ -10,15 +10,25 @@ import traceback
 def run(out_path: str, with_adb: bool = False, shots: str | None = None) -> int:
     lines: list[str] = []
     ok = True
+    import faulthandler
+    crash = open(out_path + ".crash.txt", "w", encoding="utf-8")
+    faulthandler.enable(crash)
+
+    def flush():
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
 
     def check(name, fn):
         nonlocal ok
+        lines.append(f"...  {name}")
+        flush()  # якщо процес раптом впаде — буде видно, на чому
         try:
             r = fn()
-            lines.append(f"OK   {name}" + (f" — {r}" if r else ""))
+            lines[-1] = f"OK   {name}" + (f" — {r}" if r else "")
         except Exception:  # noqa: BLE001
             ok = False
-            lines.append(f"FAIL {name}\n{traceback.format_exc()}")
+            lines[-1] = f"FAIL {name}\n{traceback.format_exc()}"
+        flush()
 
     from . import catalog
     from .actions import Actions, History
@@ -44,9 +54,9 @@ def run(out_path: str, with_adb: bool = False, shots: str | None = None) -> int:
 
     def gui():
         from .app import Main, make_app, screenshots
-        make_app([sys.argv[0]])
+        app = make_app([sys.argv[0]])  # noqa: F841 — має жити до кінця перевірки
         w = Main()
-        assert len(w.pages) == 5
+        assert len(w.pages) == 6
         w.close()
         if shots:
             files = screenshots(shots, tmp)
@@ -63,6 +73,11 @@ def run(out_path: str, with_adb: bool = False, shots: str | None = None) -> int:
     if with_adb:
         check("завантаження adb від Google", adb_download)
     lines.append("RESULT " + ("OK" if ok else "FAIL"))
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
+    flush()
+    faulthandler.disable()
+    crash.close()
+    try:
+        os.remove(out_path + ".crash.txt")
+    except OSError:
+        pass
     return 0 if ok else 1

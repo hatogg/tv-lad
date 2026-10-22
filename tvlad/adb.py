@@ -87,6 +87,37 @@ def download_adb(progress=None) -> str:
     return path
 
 
+def download(url: str, dest: str, progress=None) -> str:
+    """Завантажити файл (з перевіркою, що це справді APK/ZIP)."""
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    part = dest + ".part"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "TVLad"})
+        with urllib.request.urlopen(req, timeout=60) as r, open(part, "wb") as f:
+            total = int(r.headers.get("Content-Length") or 0)
+            done = 0
+            while True:
+                chunk = r.read(1 << 16)
+                if not chunk:
+                    break
+                f.write(chunk)
+                done += len(chunk)
+                if progress:
+                    progress(done, total)
+        if not zipfile.is_zipfile(part):
+            raise AdbError("Завантажений файл пошкоджений (це не APK).")
+        os.replace(part, dest)
+        return dest
+    except OSError as e:
+        raise AdbError(f"Не вдалося завантажити {os.path.basename(dest)}: {e}") from e
+    finally:
+        if os.path.exists(part):
+            try:
+                os.remove(part)
+            except OSError:
+                pass
+
+
 def friendly(out: str) -> str:
     low = out.lower()
     if "refused" in low:
@@ -191,6 +222,22 @@ class Adb:
         if rc != 0 and any(w in low for w in ("device offline", "not found", "unauthorized", "no devices", "closed")):
             raise AdbError(friendly(err))
         return out if out.strip() else err
+
+    def install(self, apk: str, timeout: float = 600) -> None:
+        """Встановити APK на телевізор (поверх старої версії)."""
+        if not self.serial:
+            raise AdbError("Телевізор не підключено.")
+        _, out, err = self.run(["-s", self.serial, "install", "-r", apk], timeout=timeout)
+        text = (out + "\n" + err).strip()
+        if "Success" not in text:
+            reason = next((l for l in text.splitlines() if "Failure" in l or "failed" in l.lower()), text[-300:])
+            if "INSUFFICIENT_STORAGE" in text:
+                reason = "На телевізорі не вистачає місця — очистьте кеш або вимкніть зайві програми."
+            elif "UPDATE_INCOMPATIBLE" in text:
+                reason = "Вже встановлена інша збірка з іншим підписом — спершу видаліть її з телевізора."
+            elif "OLDER_SDK" in text:
+                reason = "Ця програма не підтримує версію Android на телевізорі."
+            raise AdbError(f"Не вдалося встановити: {reason}")
 
     def disconnect(self) -> None:
         if self.serial and ":" in self.serial:

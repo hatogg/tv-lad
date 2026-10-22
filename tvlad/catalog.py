@@ -65,7 +65,10 @@ KNOWN: dict[str, Known] = {
     "org.xbmc.kodi": Known("Kodi", GROUP_APPS),
     "com.google.android.play.games.tv": Known("Google Play Ігри", GROUP_SAFE, "", True),
     "com.google.android.apps.youtube.kids": Known("YouTube Kids", GROUP_SAFE, "", True),
-    "com.spocky.projengmenu": Known("Projectivy Launcher", GROUP_USER, "Новий головний екран"),
+    "com.spocky.projengmenu": Known("Projectivy Launcher", GROUP_USER, "Головний екран"),
+    "ua.x44to.lad": Known("Лад (головний екран)", GROUP_USER, "Головний екран від ТВ Лад"),
+    "com.teamsmart.videomanager.tv": Known("SmartTube", GROUP_USER, "YouTube без реклами"),
+    "com.liskovsoft.smarttubetv.beta": Known("SmartTube Beta", GROUP_USER, "YouTube без реклами"),
     # ── обережно ──
     "com.google.android.apps.mediashell": Known("Chromecast (трансляція з телефона)", GROUP_CAREFUL,
                                                 "Без нього не вийде транслювати відео з телефона на телевізор"),
@@ -144,10 +147,19 @@ def classify(pkg: str, system: bool) -> Known | None:
         return k
     if not system:
         return Known(pretty(pkg), GROUP_USER)
-    return Known(pretty(pkg), GROUP_SYSTEM, "Невідома системна програма")
+    if pkg.startswith(AOSP_NS):
+        return None  # невідомі частини самого Android чи Google — не показуємо, щоб нічого не зламати
+    return Known(pretty(pkg), GROUP_SYSTEM, "Встановлено виробником")
+
+
+AOSP_NS = ("android.", "com.android.", "com.google.", "androidx.")
 
 
 PROJECTIVY = "com.spocky.projengmenu"
+LAD = "ua.x44to.lad"
+SMARTTUBE_PKGS = ("com.teamsmart.videomanager.tv", "com.liskovsoft.smarttubetv.beta", "com.liskovsoft.smarttubetv")
+SMARTTUBE_URL = "https://github.com/yuliskov/SmartTube/releases/download/latest/smarttube_stable.apk"
+STOCK_YOUTUBE = "com.google.android.youtube.tv"
 STOCK_LAUNCHERS = ("com.google.android.tvlauncher", "com.google.android.leanbacklauncher",
                    "com.google.android.apps.tv.launcherx")
 # «запасний» головний екран системи — його не вимикаємо ніколи

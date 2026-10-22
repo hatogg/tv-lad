@@ -4,3 +4,9 @@ build/
 dist/
 *.spec
 out/
+launcher/.gradle/
+launcher/build/
+launcher/app/build/
+launcher/local.properties
+assets/lad-home.apk
+*.crash.txt

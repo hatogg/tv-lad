@@ -1,7 +1,7 @@
 """
 Перевірка на справжньому Android TV (емулятор у CI): підключення по мережі, відомості, програми,
 анімації, кеш, головний екран — і повернення всього назад.
-Запуск: python tests/emulator_test.py <host> <port> <звіт.txt> [launcher.apk]
+Запуск: python tests/emulator_test.py <host> <port> <звіт.txt> [launcher.apk] [lad-home.apk] [тека знімків]
 """
 import os
 import shutil
@@ -19,6 +19,8 @@ from tvlad.tv import TV  # noqa: E402
 
 host, port, report = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 apk = sys.argv[4] if len(sys.argv) > 4 else None
+lad_apk = sys.argv[5] if len(sys.argv) > 5 else None
+shots = sys.argv[6] if len(sys.argv) > 6 else None
 lines, ok = [], True
 
 
@@ -121,6 +123,77 @@ if apk and os.path.exists(apk):
     step("зміна головного екрана й повернення", other_launcher)
 else:
     lines.append("SKIP зміна головного екрана (немає APK лаунчера)")
+
+
+
+def screencap(name):
+    if not shots:
+        return
+    import subprocess
+    os.makedirs(shots, exist_ok=True)
+    data = subprocess.run([adb.exe, "-s", adb.serial, "exec-out", "screencap", "-p"], capture_output=True, timeout=60).stdout
+    with open(os.path.join(shots, name + ".png"), "wb") as f:
+        f.write(data)
+
+
+def lad_alive():
+    out = tv.sh("ps -A 2>/dev/null || ps")
+    return "ua.x44to.lad" in out
+
+
+if lad_apk and os.path.exists(lad_apk):
+    def lad_install():
+        act.install_lad(lad_apk)
+        assert tv.current_home() == catalog.LAD, tv.current_home()
+        time.sleep(4)
+        assert lad_alive(), "«Лад» не запустився"
+        screencap("lad-1-home")
+        return "встановлено й зроблено головним"
+
+    step("«Лад»: встановлення й головний екран", lad_install)
+
+    def lad_demo():
+        tv.sh("am start -n ua.x44to.lad/.MainActivity --ez lad.demo true")
+        time.sleep(4)
+        screencap("lad-2-inputs")
+        tv.sh("input keyevent --longpress KEYCODE_DPAD_CENTER")
+        time.sleep(2)
+        screencap("lad-3-input-menu")
+        tv.sh("input keyevent KEYCODE_BACK")
+        time.sleep(1)
+        for _ in range(3):
+            tv.sh("input keyevent KEYCODE_DPAD_DOWN")
+        time.sleep(1)
+        screencap("lad-4-apps")
+        tv.sh("input keyevent KEYCODE_BACK")
+        assert lad_alive(), "«Лад» упав під час навігації"
+        crashes = tv.sh("logcat -d -b crash 2>/dev/null | tail -40")
+        assert "ua.x44to.lad" not in crashes, crashes
+        return ""
+
+    step("«Лад»: входи, меню, програми (без падінь)", lad_demo)
+
+    def lad_settings():
+        tv.sh("input keyevent KEYCODE_MOVE_HOME")
+        for _ in range(6):
+            tv.sh("input keyevent KEYCODE_DPAD_UP")
+        tv.sh("input keyevent KEYCODE_DPAD_RIGHT")
+        tv.sh("input keyevent KEYCODE_DPAD_CENTER")
+        time.sleep(2)
+        screencap("lad-5-settings")
+        tv.sh("input keyevent KEYCODE_BACK")
+        assert lad_alive()
+        return ""
+
+    step("«Лад»: налаштування", lad_settings)
+
+    def lad_restore():
+        act.restore_home()
+        time.sleep(2)
+        assert tv.current_home() == home0, tv.current_home()
+        return f"повернуто {home0}"
+
+    step("повернути стандартний після «Лад»", lad_restore)
 
 lines.append("RESULT " + ("OK" if ok else "FAIL"))
 with open(report, "w", encoding="utf-8") as f:

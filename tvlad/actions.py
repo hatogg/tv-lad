@@ -10,7 +10,7 @@ import re
 import time
 
 from . import catalog
-from .adb import AdbError, data_dir
+from .adb import AdbError, data_dir, download
 from .tv import ANIM_KEYS, TV
 
 
@@ -162,6 +162,8 @@ class Actions:
             self.h.save()
             tv.press_home()
             raise AdbError("Не вдалося зробити його головним — повернув стандартний головний екран.")
+        self.h.data["home"] = new_pkg
+        self.h.save()
         self.h.log(f"Головний екран: {catalog.pretty(new_pkg)} (вимкнено {', '.join(done) or '—'})")
         return new_pkg
 
@@ -175,6 +177,15 @@ class Actions:
                 pass
             if p in self.h.data["launchers"]:
                 self.h.data["launchers"].remove(p)
+        # свій головний екран (Лад, Projectivy) вимикаємо, щоб система не питала, який обрати;
+        # «Зробити головним» увімкне його знову
+        custom = self.h.data.get("home")
+        if back and custom and custom not in back:
+            try:
+                self.tv.disable(custom)
+            except AdbError:
+                pass
+        self.h.data["home"] = None
         self.h.save()
         if back:
             try:
@@ -191,3 +202,27 @@ class Actions:
         res["apps"] = self.enable(self.h.disabled)[0]
         self.restore_animations()
         return res
+
+    # ── встановлення ──
+    def install_smarttube(self, progress=None, hide_stock: bool = False) -> str:
+        """YouTube без реклами: SmartTube з офіційного GitHub розробника."""
+        apk = download(catalog.SMARTTUBE_URL, os.path.join(data_dir(), "apk", "smarttube_stable.apk"), progress)
+        self.tv.install(apk)
+        pkg = next((p for p in catalog.SMARTTUBE_PKGS if self.tv.installed(p)), None)
+        if not pkg:
+            raise AdbError("SmartTube встановився, але телевізор його не показує — спробуйте ще раз.")
+        self.h.log("Встановлено SmartTube (YouTube без реклами)")
+        if hide_stock and self.tv.installed(catalog.STOCK_YOUTUBE) and self.tv.enabled(catalog.STOCK_YOUTUBE):
+            self.disable([catalog.STOCK_YOUTUBE])
+        return pkg
+
+    def install_lad(self, apk: str, make_home: bool = True) -> str:
+        """Головний екран «Лад»: встановити (або оновити) і зробити головним."""
+        if not os.path.exists(apk):
+            raise AdbError("У цій збірці ТВ Лад немає файлу головного екрана «Лад».")
+        self.tv.install(apk)
+        self.h.log("Встановлено головний екран «Лад»")
+        if make_home:
+            self.set_home(catalog.LAD)
+        return catalog.LAD
+

@@ -121,6 +121,16 @@ class FakeTv(unittest.TestCase):
             act.set_home(catalog.PROJECTIVY)
         self.assertEqual(tv.current_home(), "com.google.android.tvlauncher")
 
+    def test_install_lad(self):
+        apk = os.path.join(self.dir, "lad-home.apk")
+        open(apk, "wb").write(b"PK")
+        self.act.install_lad(apk)
+        self.assertEqual(self.tv.current_home(), catalog.LAD)
+        self.act.restore_home()
+        self.assertEqual(self.tv.current_home(), "com.google.android.tvlauncher")
+        with self.assertRaises(AdbError):
+            self.act.install_lad(os.path.join(self.dir, "missing.apk"))
+
     def test_bad_package_name(self):
         with self.assertRaises(AdbError):
             self.tv.disable("com.x; reboot")

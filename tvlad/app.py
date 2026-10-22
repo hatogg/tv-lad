@@ -550,33 +550,121 @@ class AppsPage(Page):
 
 class HomePage(Page):
     def __init__(self, win):
-        super().__init__(win, "Головний екран", "Чистий головний екран без реклами й «рекомендацій»: Projectivy Launcher — безкоштовний, "
-                                                "з власними шпалерами, рядами улюблених програм і швидкими входами HDMI.")
+        super().__init__(win, "Головний екран", "Замість стандартного екрана з рекламою й «рекомендаціями» — ваш, охайний і швидкий.")
         cur = Card("Зараз")
         self.cur = label("", "big")
         cur.lay.addWidget(self.cur)
         self.lay.addWidget(cur)
 
-        pj = Card("Projectivy Launcher")
+        lad = Card("«Лад» — головний екран у стилі Material",
+                   "Великі плитки входів: PlayStation, ПК та інші HDMI — перемикання одним натисканням пульта. "
+                   "Ряди «Улюблене» й «Усі програми», годинник, шпалери. Без реклами й без інтернету. "
+                   "Що куди підключено, задається довгим натисканням OK на плитці входу.")
+        self.lad_state = label("", "muted")
+        lad.lay.addWidget(self.lad_state)
+        self.btn_lad = button("Встановити «Лад» і зробити головним", "primary", self.install_lad)
+        self.btn_lad_home = button("Зробити головним", slot=lambda: self.make_home(catalog.LAD, "«Лад»"))
+        lad.row(self.btn_lad, self.btn_lad_home)
+        self.lay.addWidget(lad)
+
+        pj = Card("Або Projectivy Launcher", "Готовий безкоштовний головний екран з Google Play: багато налаштувань і власні шпалери.")
         self.pj_state = label("", "muted")
         pj.lay.addWidget(self.pj_state)
-        self.btn_store = button("1. Встановити — відкрити в Google Play на телевізорі", slot=self.store)
-        self.btn_set = button("2. Зробити головним екраном", "primary", self.set_home)
-        pj.row(self.btn_store, self.btn_set)
-        pj.lay.addWidget(label("Після кроку 1 на телевізорі відкриється Google Play — натисніть «Встановити» пультом, "
-                               "потім поверніться сюди й натисніть «Оновити».", "muted"))
-        pj.row(button("Оновити", slot=self.entered))
+        self.btn_store = button("Встановити — відкрити в Google Play на телевізорі", slot=self.store)
+        self.btn_pj = button("Зробити головним", slot=lambda: self.make_home(catalog.PROJECTIVY, "Projectivy"))
+        pj.row(self.btn_store, self.btn_pj, button("Оновити", slot=self.entered))
         self.lay.addWidget(pj)
 
-        back = Card("Повернути стандартний", "Стандартний головний екран не видаляється — лише вимикається. "
-                                            "Ця кнопка повертає все як було.")
+        back = Card("Повернути стандартний", "Стандартний головний екран не видаляється — лише вимикається. Ця кнопка повертає все як було.")
         self.btn_back = button("Повернути стандартний головний екран", slot=self.restore)
         back.row(self.btn_back)
         self.lay.addWidget(back)
+        self.finish()
 
-        tips = Card("Як зробити красиво", "У Projectivy відкрийте його налаштування (значок ⚙ на головному екрані): "
-                                          "шпалери (свої фото чи з колекції), розмір і форма значків, ряди «Улюблене», «Входи», "
-                                          "прозорість панелей. Довге натискання OK на програмі — перемістити або сховати її.")
+    def entered(self):
+        if not self.win.tv:
+            return
+
+        def work():
+            tv = self.win.tv
+            return tv.current_home(), tv.home_candidates(), tv.installed(catalog.PROJECTIVY), tv.installed(catalog.LAD)
+
+        self.win.run(work, self.show, self.win.error)
+
+    def show(self, res):
+        cur, cands, pj, lad = res
+        self.win.homes = cands
+        names = {"com.google.android.tvlauncher": "Стандартний Android TV", "com.google.android.leanbacklauncher": "Стандартний Android TV",
+                 "com.google.android.apps.tv.launcherx": "Google TV", catalog.PROJECTIVY: "Projectivy Launcher", catalog.LAD: "«Лад»"}
+        self.cur.setText(names.get(cur, catalog.pretty(cur)) if cur else "Система питатиме, який обрати")
+        has_apk = os.path.exists(resource("lad-home.apk"))
+        if cur == catalog.LAD:
+            self.lad_state.setText("Встановлено й працює як головний екран ✓  (кнопка нижче оновить до версії з цієї програми)")
+        elif lad:
+            self.lad_state.setText("Встановлено. Можна зробити головним.")
+        else:
+            self.lad_state.setText("Ще не встановлено." if has_apk else "У цій збірці немає файлу «Лад».")
+        self.btn_lad.setText("Оновити «Лад»" if cur == catalog.LAD else "Встановити «Лад» і зробити головним")
+        self.btn_lad.setEnabled(has_apk)
+        self.btn_lad_home.setEnabled(lad and cur != catalog.LAD)
+        if not pj:
+            self.pj_state.setText("Не встановлено.")
+        elif cur == catalog.PROJECTIVY:
+            self.pj_state.setText("Встановлено й працює як головний екран ✓")
+        else:
+            self.pj_state.setText("Встановлено.")
+        self.btn_pj.setEnabled(pj and cur != catalog.PROJECTIVY)
+        self.btn_store.setEnabled(not pj)
+        self.btn_back.setEnabled(bool(self.win.history and self.win.history.launchers))
+
+    def install_lad(self):
+        apk = resource("lad-home.apk")
+        self.lad_state.setText("Встановлюю на телевізор… (до хвилини)")
+        self.win.run(lambda: self.win.actions.install_lad(apk),
+                     lambda _: (self.win.toast("«Лад» встановлено ✓ Натисніть «Додому» на пульті"), self.entered()),
+                     lambda e: (self.win.error(e), self.entered()))
+
+    def make_home(self, pkg, name):
+        if not self.win.confirm(f"Зробити {name} головним?",
+                                "Стандартний головний екран буде вимкнено (не видалено). Повернути його можна будь-коли "
+                                "кнопкою «Повернути стандартний» або у «Відновленні»."):
+            return
+        self.win.run(lambda: self.win.actions.set_home(pkg),
+                     lambda _: (self.win.toast("Готово ✓ Натисніть «Додому» на пульті"), self.entered()), self.win.error)
+
+    def store(self):
+        self.win.run(lambda: self.win.tv.open_store(catalog.PROJECTIVY),
+                     lambda _: self.win.toast("Подивіться на телевізор: відкрився Google Play ✓"), self.win.error)
+
+    def restore(self):
+        self.win.run(self.win.actions.restore_home, lambda _: (self.win.toast("Стандартний головний екран повернуто ✓"), self.entered()),
+                     self.win.error)
+
+
+class YouTubePage(Page):
+    def __init__(self, win):
+        super().__init__(win, "YouTube без реклами", "SmartTube — безкоштовний YouTube для телевізорів без реклами, з пропуском "
+                                                     "спонсорських вставок і роботою на старих Android (від 4.3).")
+        st = Card("SmartTube")
+        self.state = label("", "muted")
+        st.lay.addWidget(self.state)
+        self.hide = QComboBox()
+        self.hide.addItems(["Стандартний YouTube залишити", "Стандартний YouTube сховати (вимкнути)"])
+        self.btn = button("Встановити SmartTube", "primary", self.install)
+        st.row(self.btn, self.hide)
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 100)
+        self.progress.setFixedHeight(6)
+        self.progress.setTextVisible(False)
+        self.progress.hide()
+        st.lay.addWidget(self.progress)
+        st.lay.addWidget(label("Файл завантажується лише з офіційної сторінки розробника на GitHub "
+                               "(github.com/yuliskov/SmartTube). Не ставте SmartTube з APK-сайтів і магазинів — "
+                               "там бувають підробки з вірусами.", "muted"))
+        self.lay.addWidget(st)
+        tips = Card("Після встановлення", "Відкрийте SmartTube на телевізорі й увійдіть у свій акаунт Google (за кодом на "
+                                          "youtube.com/activate з телефона) — підписки й історія будуть ті самі. "
+                                          "Оновлення SmartTube пропонує сам.")
         self.lay.addWidget(tips)
         self.finish()
 
@@ -586,41 +674,38 @@ class HomePage(Page):
 
         def work():
             tv = self.win.tv
-            return tv.current_home(), tv.home_candidates(), tv.installed(catalog.PROJECTIVY)
+            return next((p for p in catalog.SMARTTUBE_PKGS if tv.installed(p)), None)
 
         self.win.run(work, self.show, self.win.error)
 
-    def show(self, res):
-        cur, cands, pj = res
-        self.win.homes = cands
-        names = {"com.google.android.tvlauncher": "Стандартний Android TV", "com.google.android.leanbacklauncher": "Стандартний Android TV (старий)",
-                 "com.google.android.apps.tv.launcherx": "Google TV", catalog.PROJECTIVY: "Projectivy Launcher"}
-        self.cur.setText(names.get(cur, catalog.pretty(cur)) if cur else "Система питатиме, який обрати")
-        if not pj:
-            self.pj_state.setText("Не встановлено.")
-        elif cur == catalog.PROJECTIVY:
-            self.pj_state.setText("Встановлено й працює як головний екран ✓")
-        else:
-            self.pj_state.setText("Встановлено. Залишилось зробити його головним.")
-        self.btn_set.setEnabled(pj and cur != catalog.PROJECTIVY)
-        self.btn_store.setEnabled(not pj)
-        self.btn_back.setEnabled(bool(self.win.history and self.win.history.launchers))
+    def show(self, pkg):
+        self.state.setText("Встановлено ✓ (кнопка оновить до найновішої версії)" if pkg else "Ще не встановлено.")
+        self.btn.setText("Оновити SmartTube" if pkg else "Встановити SmartTube")
 
-    def store(self):
-        self.win.run(lambda: self.win.tv.open_store(catalog.PROJECTIVY),
-                     lambda _: self.win.toast("Подивіться на телевізор: відкрився Google Play ✓"), self.win.error)
+    def install(self):
+        self.btn.setEnabled(False)
+        self.progress.setValue(0)
+        self.progress.show()
+        self.state.setText("Завантажую з GitHub…")
+        hide = self.hide.currentIndex() == 1
 
-    def set_home(self):
-        if not self.win.confirm("Зробити Projectivy головним?",
-                                "Стандартний головний екран буде вимкнено (не видалено). Повернути його можна будь-коли "
-                                "кнопкою «Повернути стандартний» або у «Відновленні»."):
-            return
-        self.win.run(lambda: self.win.actions.set_home(catalog.PROJECTIVY),
-                     lambda _: (self.win.toast("Готово ✓ Натисніть «Додому» на пульті"), self.entered()), self.win.error)
+        def prog(done, total):
+            if total:
+                self.win.sig_progress.emit(int(done * 100 / total))
 
-    def restore(self):
-        self.win.run(self.win.actions.restore_home, lambda _: (self.win.toast("Стандартний головний екран повернуто ✓"), self.entered()),
-                     self.win.error)
+        def ok(_):
+            self.btn.setEnabled(True)
+            self.progress.hide()
+            self.win.toast("SmartTube встановлено ✓ Шукайте його серед програм на телевізорі")
+            self.entered()
+
+        def fail(e):
+            self.btn.setEnabled(True)
+            self.progress.hide()
+            self.state.setText("")
+            self.win.error(e)
+
+        self.win.run(lambda: self.win.actions.install_smarttube(prog, hide), ok, fail)
 
 
 class RestorePage(Page):
@@ -665,6 +750,7 @@ class RestorePage(Page):
 
 class Main(QMainWindow):
     sig_status = pyqtSignal(str)
+    sig_progress = pyqtSignal(int)
 
     def __init__(self, adb=None, sync: bool = False):
         super().__init__()
@@ -697,8 +783,8 @@ class Main(QMainWindow):
         sl.addWidget(label("для телевізорів KIVI та інших Android TV", "brandSub"))
         sl.addSpacing(18)
         self.stack = QStackedWidget()
-        self.pages = [ConnectPage(self), SpeedPage(self), AppsPage(self), HomePage(self), RestorePage(self)]
-        names = ["Підключення", "Прискорення", "Програми", "Головний екран", "Відновлення"]
+        self.pages = [ConnectPage(self), SpeedPage(self), AppsPage(self), HomePage(self), YouTubePage(self), RestorePage(self)]
+        names = ["Підключення", "Прискорення", "Програми", "Головний екран", "YouTube без реклами", "Відновлення"]
         self.nav = QButtonGroup(self)
         self.nav.setExclusive(True)
         self.nav_btns = []
@@ -732,6 +818,7 @@ class Main(QMainWindow):
         h.addLayout(right, 1)
         self.setCentralWidget(root)
         self.sig_status.connect(self.toast)
+        self.sig_progress.connect(lambda v: self.pages[4].progress.setValue(v))
         self.nav_btns[0].setChecked(True)
         self.set_connected(False)
 
@@ -819,8 +906,13 @@ class Main(QMainWindow):
         self.go(0)
 
 
+_APP: QApplication | None = None
+
+
 def make_app(argv) -> QApplication:
+    global _APP
     app = QApplication.instance() or QApplication(argv)
+    _APP = app  # тримаємо посилання, інакше Python прибере застосунок і вікна впадуть
     app.setApplicationName(APP_NAME)
     app.setStyleSheet(QSS)
     f = QFont("Segoe UI" if sys.platform == "win32" else "Noto Sans")
@@ -843,9 +935,9 @@ def screenshots(folder: str, history_dir: str) -> list[str]:
     win.resize(1080, 720)
     win.show()
     out = []
-    names = ["1-connect", "2-speed", "3-apps", "4-home", "5-restore"]
+    names = ["1-connect", "2-speed", "3-apps", "4-home", "5-youtube", "6-restore"]
     for i, n in enumerate(names):
-        if i == 4:
+        if i == 5:
             win.actions.disable(["com.google.android.play.games", "com.google.android.videos"])
             win.actions.set_animations(0.5)
             win.actions.set_home(catalog.PROJECTIVY)
