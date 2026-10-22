@@ -239,6 +239,22 @@ class Adb:
                 reason = "Ця програма не підтримує версію Android на телевізорі."
             raise AdbError(f"Не вдалося встановити: {reason}")
 
+    def screencap(self, dest: str) -> str:
+        """Знімок екрана телевізора у PNG."""
+        if not self.serial:
+            raise AdbError("Телевізор не підключено.")
+        try:
+            p = subprocess.run([self.exe, "-s", self.serial, "exec-out", "screencap", "-p"], capture_output=True,
+                               timeout=60, creationflags=NO_WINDOW)
+        except (subprocess.TimeoutExpired, OSError) as e:
+            raise AdbError(f"Не вдалося зробити знімок: {e}") from e
+        data = p.stdout
+        if not data.startswith(b"\x89PNG"):
+            raise AdbError("Телевізор не віддав знімок екрана.")
+        with open(dest, "wb") as f:
+            f.write(data)
+        return dest
+
     def disconnect(self) -> None:
         if self.serial and ":" in self.serial:
             try:

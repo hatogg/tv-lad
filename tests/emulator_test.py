@@ -152,19 +152,34 @@ if lad_apk and os.path.exists(lad_apk):
 
     step("«Лад»: встановлення й головний екран", lad_install)
 
+    def ui_text():
+        tv.sh("uiautomator dump /sdcard/ui.xml >/dev/null 2>&1")
+        return tv.sh("cat /sdcard/ui.xml")
+
     def lad_demo():
         tv.sh("am start -n ua.x44to.lad/.MainActivity --ez lad.demo true")
         time.sleep(5)
-        screencap("lad-2-top-shelf-input")
+        screencap("lad-2-shelf-input")
+        # утримання OK на першому вході → меню → вибрати «Xbox»
         tv.sh("input keyevent --longpress KEYCODE_DPAD_CENTER")
         time.sleep(2)
         screencap("lad-3-input-menu")
+        assert "що підключено" in ui_text(), "меню входу не відкрилось від утримання OK"
+        tv.sh("input keyevent KEYCODE_DPAD_DOWN")
+        tv.sh("input keyevent KEYCODE_DPAD_CENTER")
+        time.sleep(2)
+        assert "Xbox" in ui_text(), "вибір у меню не спрацював"
+        # кнопка Menu теж відкриває меню
+        tv.sh("input keyevent KEYCODE_MENU")
+        time.sleep(2)
+        assert "що підключено" in ui_text(), "кнопка Menu не відкрила меню"
         tv.sh("input keyevent KEYCODE_BACK")
         time.sleep(1)
         for _ in range(4):
             tv.sh("input keyevent KEYCODE_DPAD_RIGHT")
+        tv.sh("input keyevent KEYCODE_DPAD_DOWN")
         time.sleep(2)
-        screencap("lad-4-top-shelf-app")
+        screencap("lad-4-shelf-app")
         tv.sh("input keyevent KEYCODE_DPAD_DOWN")
         tv.sh("input keyevent KEYCODE_DPAD_DOWN")
         time.sleep(2)
@@ -174,7 +189,7 @@ if lad_apk and os.path.exists(lad_apk):
         assert "ua.x44to.lad" not in crashes, crashes
         return ""
 
-    step("«Лад»: вітрина, меню, сітка (без падінь)", lad_demo)
+    step("«Лад»: вітрина, утримання OK, Menu, сітка (без падінь)", lad_demo)
 
     def lad_settings():
         for _ in range(10):

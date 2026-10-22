@@ -744,6 +744,11 @@ class DiagPage(Page):
         rep.lay.addWidget(self.preview)
         self.lay.addWidget(rep)
 
+        shot = Card("Знімок екрана телевізора", "Зберігає, що зараз на екрані телевізора, у PNG — зручно показати Claude чи майстру, як виглядає.")
+        self.shot_res = label("", "ok")
+        shot.row(button("Зробити знімок", slot=self.screenshot), self.shot_res)
+        self.lay.addWidget(shot)
+
         lst = Card("Застосувати список", "Отримали список програм для вимкнення (.txt — по одній у рядку, або .json)? "
                                         "Системне, без чого телевізор не працює, однаково не вимкнеться. Усе можна повернути у «Відновленні».")
         lst.row(button("Обрати файл зі списком…", slot=self.apply_list))
@@ -779,6 +784,18 @@ class DiagPage(Page):
             self.win.toast("Звіт готовий ✓ шлях до файлу скопійовано")
 
         self.win.run(work, ok, lambda e: (self.btn.setEnabled(True), self.path.setText(""), self.win.error(e)))
+
+    def screenshot(self):
+        import time as _t
+        p = os.path.join(self.folder(), f"tv-screen-{_t.strftime('%Y%m%d-%H%M%S')}.png")
+
+        def ok(path):
+            self.shot_res.setText(f"Збережено: {path}")
+            QApplication.clipboard().setText(path)
+            if not self.win.sync:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+        self.win.run(lambda: self.win.tv.adb.screencap(p), ok, self.win.error)
 
     def open_dir(self):
         QDesktopServices.openUrl(QUrl.fromLocalFile(self.folder()))

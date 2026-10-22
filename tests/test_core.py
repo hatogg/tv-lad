@@ -150,6 +150,10 @@ class FakeTv(unittest.TestCase):
             f.write('{"disable": ["com.netflix.ninja", "com.netflix.ninja"]}')
         self.assertEqual(Actions.read_list(js), ["com.netflix.ninja"])
 
+    def test_screencap(self):
+        p = self.adb.screencap(os.path.join(self.dir, "s.png"))
+        self.assertTrue(open(p, "rb").read().startswith(b"\x89PNG"))
+
     def test_bad_package_name(self):
         with self.assertRaises(AdbError):
             self.tv.disable("com.x; reboot")

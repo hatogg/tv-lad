@@ -37,6 +37,13 @@ class FakeAdb:
             self.user.append(pkg)
         self.log.append(f"install {apk}")
 
+    def screencap(self, dest: str) -> str:
+        import base64
+        png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+        with open(dest, "wb") as f:
+            f.write(png)
+        return dest
+
     # те саме, що в справжнього Adb
     def state(self) -> str:
         return "device"
