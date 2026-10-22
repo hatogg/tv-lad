@@ -1,0 +1,20 @@
+OK   підключення по мережі — 127.0.0.1:5555
+OK   відомості — generic_x86 sdk_google_atv_x86, Android 7.1.1 (SDK 25), вільно 5985 МБ, RAM 1514 МБ
+OK   список програм — усього 61, показуємо 9, захищено 52
+     показуємо: com.android.dreams.basic, com.android.printspooler, com.google.android.backdrop, com.google.android.backuptransport, com.google.android.katniss, com.google.android.marvin.talkback, com.google.android.syncadapters.contacts, com.google.android.tts, com.lego.android.tvleanback
+OK   анімації та їх повернення — {'window_animation_scale': 'null', 'transition_animation_scale': 'null', 'animator_duration_scale': 'null'}
+OK   вимкнути й увімкнути програму — com.android.dreams.basic
+OK   захищене не вимикається
+OK   очищення кешу — звільнено 0 МБ
+OK   фонові програми
+OK   поточний головний екран — com.google.android.leanbacklauncher
+OK   головні екрани — com.google.android.leanbacklauncher
+OK   захист: лаунчер не встановлено — відмовлено як слід: Цей головний екран ще не встановлено на телевізорі.
+OK   зміна головного екрана й повернення — x.home → головний і назад
+OK   «Лад»: встановлення й головний екран — встановлено й зроблено головним
+     плавність: Total frames rendered: 195 | Janky frames: 109 (55.90%) | 90th percentile: 21ms | 95th percentile: 29ms | 99th percentile: 53ms
+OK   «Лад»: вітрина, утримання OK, Menu, сітка (без падінь)
+OK   «Лад»: налаштування
+OK   повернути стандартний після «Лад» — повернуто com.google.android.leanbacklauncher
+RESULT OK
+rc=0

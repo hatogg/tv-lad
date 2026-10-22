@@ -1,0 +1,35 @@
+test_groups (test_core.Catalog.test_groups) ... ok
+test_pretty (test_core.Catalog.test_pretty) ... ok
+test_protected (test_core.Catalog.test_protected) ... ok
+test_animations_and_restore (test_core.FakeTv.test_animations_and_restore) ... ok
+test_apps_and_disable_enable (test_core.FakeTv.test_apps_and_disable_enable) ... ok
+test_bad_package_name (test_core.FakeTv.test_bad_package_name) ... ok
+test_boost (test_core.FakeTv.test_boost) ... ok
+test_home (test_core.FakeTv.test_home) ... ok
+test_home_not_installed (test_core.FakeTv.test_home_not_installed) ... ok
+test_info (test_core.FakeTv.test_info) ... ok
+test_install_apks (test_core.FakeTv.test_install_apks) ... /home/runner/work/tv-lad/tv-lad/tests/test_core.py:159: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpvc5s6_28/my-app.apk'>
+  open(a, "wb").write(b"PK")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_install_lad (test_core.FakeTv.test_install_lad) ... /home/runner/work/tv-lad/tv-lad/tests/test_core.py:132: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpvaddhtvi/lad-home.apk'>
+  open(apk, "wb").write(b"PK")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_report_and_list (test_core.FakeTv.test_report_and_list) ... ok
+test_screencap (test_core.FakeTv.test_screencap) ... /home/runner/work/tv-lad/tv-lad/tests/test_core.py:155: ResourceWarning: unclosed file <_io.BufferedReader name='/tmp/tmpqswg71we/s.png'>
+  self.assertTrue(open(p, "rb").read().startswith(b"\x89PNG"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_activities (test_core.Parse.test_activities) ... ok
+test_activities_long_form (test_core.Parse.test_activities_long_form) ... ok
+test_df (test_core.Parse.test_df) ... ok
+test_friendly (test_core.Parse.test_friendly) ... ok
+test_getprop (test_core.Parse.test_getprop) ... ok
+test_meminfo (test_core.Parse.test_meminfo) ... ok
+test_packages (test_core.Parse.test_packages) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 2.023s
+
+OK

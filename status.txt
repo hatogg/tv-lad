@@ -1,0 +1,1 @@
+launcher=success test=success emulator=success windows=success

@@ -1,0 +1,20 @@
+OK   підключення по мережі — 127.0.0.1:5555
+OK   відомості — google AOSP TV on x86, Android 11 (SDK 30), вільно 5667 МБ, RAM 1477 МБ
+OK   список програм — усього 95, показуємо 10, захищено 85
+     показуємо: com.android.dreams.basic, com.android.printspooler, com.google.android.apps.mediashell, com.google.android.backdrop, com.google.android.katniss, com.google.android.play.games, com.google.android.tts, com.google.android.tv.bugreportsender, com.google.android.tvrecommendations, com.google.android.youtube.tv
+OK   анімації та їх повернення — {'window_animation_scale': '1.0', 'transition_animation_scale': '1.0', 'animator_duration_scale': 'null'}
+OK   вимкнути й увімкнути програму — com.android.dreams.basic
+OK   захищене не вимикається
+OK   очищення кешу — звільнено 0 МБ
+OK   фонові програми
+OK   поточний головний екран — com.google.android.tvlauncher
+OK   головні екрани — com.google.android.tvlauncher
+OK   захист: лаунчер не встановлено — відмовлено як слід: Цей головний екран ще не встановлено на телевізорі.
+OK   зміна головного екрана й повернення — x.home → головний і назад
+OK   «Лад»: встановлення й головний екран — встановлено й зроблено головним
+     плавність: Total frames rendered: 303 | Janky frames: 159 (52.48%) | 90th percentile: 31ms | 95th percentile: 40ms | 99th percentile: 69ms | 90th gpu percentile: 15ms | 95th gpu percentile: 18ms | 99th gpu percentile: 4950ms
+OK   «Лад»: вітрина, утримання OK, Menu, сітка (без падінь)
+OK   «Лад»: налаштування
+OK   повернути стандартний після «Лад» — повернуто com.google.android.tvlauncher
+RESULT OK
+rc=0
