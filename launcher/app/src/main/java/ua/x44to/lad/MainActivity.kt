@@ -32,19 +32,42 @@ class LadState(private val ctx: Context, var demo: Boolean) {
     var hintShown by mutableStateOf(prefs.hintShown)
     private val io = Executors.newSingleThreadExecutor()
 
-    fun reload(onMain: (Runnable) -> Unit) {
-        val newApps = loadApps(ctx)
-        var newInputs = loadInputs(ctx)
-        if (newInputs.isEmpty() && demo) newInputs = DEMO_INPUTS
-        val order = prefs.inputOrder
-        newInputs = newInputs.sortedBy { i -> order.indexOf(i.id).let { if (it < 0) Int.MAX_VALUE else it } }
-        apps.clear()
-        apps.addAll(newApps)
-        inputs.clear()
-        inputs.addAll(newInputs)
+    private var lastReload = 0L
+
+    /** Оновити програми й входи. Читання — у фоні; списки міняємо лише якщо щось змінилося (інакше зайва перемальовка). */
+    fun reload(onMain: (Runnable) -> Unit, force: Boolean = false) {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (!force && now - lastReload < 3000) return
+        lastReload = now
+        io.execute {
+            val newApps = loadApps(ctx)
+            var newInputs = loadInputs(ctx)
+            if (newInputs.isEmpty() && demo) newInputs = DEMO_INPUTS
+            val order = prefs.inputOrder
+            newInputs = newInputs.sortedBy { i -> order.indexOf(i.id).let { if (it < 0) Int.MAX_VALUE else it } }
+            onMain(Runnable { applyLoaded(newApps, newInputs) })
+            val missing = newApps.filter { it.key !in art }
+            for (a in missing) {
+                val img = loadArt(ctx, a) ?: continue
+                onMain(Runnable { art[a.key] = img })
+            }
+        }
+    }
+
+    private fun applyLoaded(newApps: List<AppEntry>, newInputs: List<TvIn>) {
+        if (apps.toList() != newApps) {
+            apps.clear()
+            apps.addAll(newApps)
+        }
+        if (inputs.toList() != newInputs) {
+            inputs.clear()
+            inputs.addAll(newInputs)
+        }
         for (i in newInputs) {
-            kinds[i.id] = prefs.kindOf(i.id) ?: if (demo) DEMO_KINDS[i.id] ?: guessKind(i.label, i.type) else guessKind(i.label, i.type)
-            hidden[i.id] = prefs.hidden(i.id)
+            val k = prefs.kindOf(i.id) ?: if (demo) DEMO_KINDS[i.id] ?: guessKind(i.label, i.type) else guessKind(i.label, i.type)
+            if (kinds[i.id] != k) kinds[i.id] = k
+            val h = prefs.hidden(i.id)
+            if (hidden[i.id] != h) hidden[i.id] = h
         }
         var fav = prefs.favorites
         if (!prefs.favoritesSeeded) {
@@ -52,15 +75,10 @@ class LadState(private val ctx: Context, var demo: Boolean) {
             prefs.favorites = fav
             prefs.favoritesSeeded = true
         }
-        favorites.clear()
-        favorites.addAll(fav.filter { p -> newApps.any { it.pkg == p } })
-        // значки й банери — у фоні, щоб екран з'являвся одразу
-        val missing = newApps.filter { it.key !in art }
-        io.execute {
-            for (a in missing) {
-                val img = loadArt(ctx, a) ?: continue
-                onMain(Runnable { art[a.key] = img })
-            }
+        val newFav = fav.filter { p -> newApps.any { it.pkg == p } }
+        if (favorites.toList() != newFav) {
+            favorites.clear()
+            favorites.addAll(newFav)
         }
     }
 
@@ -149,7 +167,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var state: LadState
     private val packages = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            refresh()
+            refresh(force = true)
         }
     }
 
@@ -164,7 +182,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         if (intent.getBooleanExtra(EXTRA_DEMO, false) && !state.demo) {
             state.demo = true
-            refresh()
+            refresh(force = true)
         }
     }
 
@@ -193,8 +211,8 @@ class MainActivity : ComponentActivity() {
         refresh()
     }
 
-    private fun refresh() {
-        state.reload { r -> runOnUiThread(r) }
+    private fun refresh(force: Boolean = false) {
+        state.reload({ r -> runOnUiThread(r) }, force)
     }
 
     companion object {

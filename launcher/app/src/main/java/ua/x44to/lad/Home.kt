@@ -5,11 +5,6 @@ package ua.x44to.lad
 import android.app.Activity
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -65,14 +60,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -87,7 +81,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
-import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
@@ -214,18 +207,14 @@ fun LadHome(state: LadState, act: Activity) {
     BackHandler(enabled = menu == null) { /* головний екран: «Назад» нікуди не веде */ }
 
     MaterialTheme(colorScheme = darkColorScheme(primary = Color.White, surface = Color(0xFF2C2C2E), onSurface = Color.White)) {
+        val backdrop = remember(wp) { backdropBitmap(wp) }
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()
-                .background(wp.base)
-                .drawBehind {
-                    for (o in wp.orbs) {
-                        val c = Offset(size.width * o.x, size.height * o.y)
-                        val r = size.width * o.r
-                        drawCircle(Brush.radialGradient(listOf(o.color.copy(alpha = if (wp.light) 0.75f else 0.55f), Color.Transparent), c, r), r, c)
-                    }
-                },
+                .background(wp.base),
         ) {
+            // тло малюється раз у маленьку картинку (м'які плями добре розтягуються) — це майже нічого не коштує
+            Image(backdrop, null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
             val side = maxWidth * 0.06f
             val gap = 24.dp
             val tileW: Dp = ((maxWidth - side * 2 - gap * 4) / 5).coerceIn(110.dp, 220.dp)
@@ -353,10 +342,10 @@ private fun Shelf(state: LadState, focus: Focus?, wp: Wallpaper, side: Dp, heigh
             .padding(horizontal = side)
             .fillMaxWidth()
             .height(height)
-            .shadow(18.dp, RoundedCornerShape(28.dp))
             .clip(RoundedCornerShape(28.dp)),
     ) {
-        Crossfade(targetState = focus, animationSpec = tween(300), label = "shelf") { f ->
+        val f = focus
+        run {
             Box(Modifier.fillMaxSize()) {
                 when (f) {
                     is Focus.In -> {
@@ -376,7 +365,7 @@ private fun Shelf(state: LadState, focus: Focus?, wp: Wallpaper, side: Dp, heigh
                                 Image(art.image, f.app.label, contentScale = ContentScale.Crop, modifier = Modifier
                                     .align(Alignment.CenterEnd).padding(end = 36.dp)
                                     .height(height * 0.72f).width(height * 0.72f * 16f / 9f)
-                                    .shadow(16.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)))
+                                    .clip(RoundedCornerShape(18.dp)))
                             } else {
                                 Image(art.image, f.app.label, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 70.dp).size(height * 0.6f))
                             }
@@ -418,7 +407,7 @@ private fun BoxScope.ShelfText(kicker: String, title: String, sub: String, color
 
 // ───────── плитки ─────────
 
-/** Плитка: на фокусі піднімається з тінню, по ній пробігає відблиск; назва з'являється лише під вибраною. */
+/** Плитка: на фокусі збільшується з апаратною тінню й легким блиском; назва — лише під вибраною. Без важких ефектів. */
 @Composable
 private fun Tile(
     label: String, wp: Wallpaper, w: Dp, h: Dp, modifier: Modifier,
@@ -427,42 +416,30 @@ private fun Tile(
 ) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
-    val shine = remember { Animatable(-0.6f) }
-    LaunchedEffect(focused) {
-        if (focused) {
-            onFocus()
-            shine.snapTo(-0.6f)
-            shine.animateTo(1.6f, tween(1000, easing = FastOutSlowInEasing))
-        }
-    }
-    val labelAlpha by animateFloatAsState(if (focused) 1f else 0f, tween(180), label = "label")
+    LaunchedEffect(focused) { if (focused) onFocus() }
     Column(modifier.width(w), horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
             onClick = onClick,
-            modifier = Modifier.width(w).height(h).tvPress(onClick, onLong),
+            modifier = Modifier
+                .width(w).height(h)
+                .graphicsLayer {
+                    shadowElevation = if (focused) 14.dp.toPx() else 0f
+                    shape = TileShape
+                    clip = false
+                }
+                .tvPress(onClick, onLong),
             shape = ClickableSurfaceDefaults.shape(TileShape),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.14f),
-            glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(elevationColor = Color(0x99000000), elevation = 22.dp)),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.12f),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
             interactionSource = src,
         ) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .clip(TileShape)
-                    .drawWithContent {
-                        drawContent()
-                        if (focused) {
-                            drawRect(Brush.verticalGradient(listOf(Color(0x33FFFFFF), Color.Transparent), endY = size.height * 0.6f))
-                            val x = size.width * shine.value
-                            drawRect(Brush.linearGradient(listOf(Color.Transparent, Color(0x4DFFFFFF), Color.Transparent),
-                                start = Offset(x - size.width * 0.35f, 0f), end = Offset(x + size.width * 0.05f, size.height)))
-                        }
-                    },
-            ) { content() }
+            Box(Modifier.fillMaxSize().clip(TileShape)) {
+                content()
+                if (focused) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0x30FFFFFF), Color.Transparent))))
+            }
         }
         Text(label, color = wp.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center, modifier = Modifier.padding(top = 18.dp).alpha(labelAlpha))
+            textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp).alpha(if (focused) 1f else 0f))
     }
 }
 
@@ -670,4 +647,23 @@ private fun SettingsMenu(state: LadState, act: Activity, onInput: (TvIn) -> Unit
         }
     }
     FocusFirst(fr)
+}
+
+/** Тло з кольоровими плямами у 384×216 — малюється один раз при зміні теми. */
+private fun backdropBitmap(wp: Wallpaper): androidx.compose.ui.graphics.ImageBitmap {
+    val w = 384
+    val h = 216
+    val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+    val cv = android.graphics.Canvas(bmp)
+    cv.drawColor(wp.base.toArgb())
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    for (o in wp.orbs) {
+        val cx = w * o.x
+        val cy = h * o.y
+        val r = w * o.r
+        val c = o.color.copy(alpha = if (wp.light) 0.75f else 0.55f).toArgb()
+        paint.shader = android.graphics.RadialGradient(cx, cy, r, c, android.graphics.Color.TRANSPARENT, android.graphics.Shader.TileMode.CLAMP)
+        cv.drawCircle(cx, cy, r, paint)
+    }
+    return bmp.asImageBitmap()
 }

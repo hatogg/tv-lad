@@ -283,6 +283,7 @@ class TV:
         ("Вимкнені програми", "pm list packages -d"),
         ("Запущені служби", "dumpsys activity services | grep -E 'ServiceRecord\\{' | sed 's/.* u0 //' | sort | uniq | head -120"),
         ("Входи телевізора", "dumpsys tv_input 2>/dev/null | head -80"),
+        ("Плавність головного екрана «Лад»", "dumpsys gfxinfo ua.x44to.lad 2>/dev/null | sed -n '/Total frames/,/HISTOGRAM/p' | head -20"),
     ]
 
     def report(self, progress=None) -> str:

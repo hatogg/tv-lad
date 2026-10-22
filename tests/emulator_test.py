@@ -159,6 +159,7 @@ if lad_apk and os.path.exists(lad_apk):
     def lad_demo():
         tv.sh("am start -n ua.x44to.lad/.MainActivity --ez lad.demo true")
         time.sleep(5)
+        tv.sh("dumpsys gfxinfo ua.x44to.lad reset")
         screencap("lad-2-shelf-input")
         # утримання OK на першому вході → меню → вибрати «Xbox»
         tv.sh("input keyevent --longpress KEYCODE_DPAD_CENTER")
@@ -185,6 +186,8 @@ if lad_apk and os.path.exists(lad_apk):
         time.sleep(2)
         screencap("lad-5-grid")
         assert lad_alive(), "«Лад» упав під час навігації"
+        gfx = tv.sh("dumpsys gfxinfo ua.x44to.lad | grep -E 'Total frames|Janky frames|90th|95th|99th'")
+        lines.append("     плавність: " + " | ".join(l.strip() for l in gfx.splitlines()))
         crashes = tv.sh("logcat -d -b crash 2>/dev/null | tail -40")
         assert "ua.x44to.lad" not in crashes, crashes
         return ""
