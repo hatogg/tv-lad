@@ -380,7 +380,7 @@ private fun SettingsMenu(state: LadState, act: Activity, onDismiss: () -> Unit) 
             items(WALLPAPERS.size) { n ->
                 val w = WALLPAPERS[n]
                 Surface(
-                    onClick = { state.setWallpaper(n) },
+                    onClick = { state.pickWallpaper(n) },
                     modifier = Modifier.fillMaxWidth().height(46.dp),
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, White), shape = RoundedCornerShape(12.dp))),

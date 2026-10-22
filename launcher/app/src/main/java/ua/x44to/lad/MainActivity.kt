@@ -101,7 +101,7 @@ class LadState(private val ctx: Context, var demo: Boolean) {
         prefs.inputOrder = inputs.map { it.id }
     }
 
-    fun setWallpaper(n: Int) {
+    fun pickWallpaper(n: Int) {
         wallpaper = n
         prefs.wallpaper = n
     }
