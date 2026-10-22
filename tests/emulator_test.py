@@ -160,12 +160,20 @@ if lad_apk and os.path.exists(lad_apk):
         tv.sh("am start -n ua.x44to.lad/.MainActivity --ez lad.demo true")
         time.sleep(5)
         tv.sh("dumpsys gfxinfo ua.x44to.lad reset")
+        d0 = ui_text()
+        import re as _re0
+        f0 = _re0.findall(r'<node[^>]*focused="true"[^>]*>', d0)
+        lines.append("     фокус після запуску: " + (f0[0][:300] if f0 else "—"))
         screencap("lad-2-shelf-input")
         # утримання OK на першому вході → меню → вибрати «Xbox»
         tv.sh("input keyevent --longpress KEYCODE_DPAD_CENTER")
         time.sleep(2)
         screencap("lad-3-input-menu")
+        tv.sh("input keyevent KEYCODE_BACK") if False else None
         dump = ui_text()
+        import re as _re
+        foc = _re.findall(r'<node[^>]*focused="true"[^>]*>', dump)
+        lines.append("     у фокусі: " + (foc[0][:300] if foc else "—"))
         assert "що підключено" in dump, "меню входу не відкрилось від утримання OK; екран: " + " | ".join(
             sorted(set(__import__("re").findall(r'text="([^"]+)"', dump)))[:40])
         tv.sh("input keyevent KEYCODE_DPAD_DOWN")

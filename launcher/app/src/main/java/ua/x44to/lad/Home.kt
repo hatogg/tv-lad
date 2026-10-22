@@ -1,4 +1,4 @@
-@file:OptIn(androidx.tv.material3.ExperimentalTvMaterial3Api::class)
+@file:OptIn(androidx.tv.material3.ExperimentalTvMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 
 package ua.x44to.lad
 
@@ -65,6 +65,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -185,13 +187,21 @@ fun LadHome(state: LadState, act: Activity) {
     var menu by remember { mutableStateOf<Menu?>(null) }
     val first = remember { FocusRequester() }
     var firstHasFocus by remember { mutableStateOf(false) }
+    val firstAttached = state.inputs.any { state.hidden[it.id] != true } || state.apps.isNotEmpty()
     val firstMod = Modifier.focusRequester(first).onFocusChanged { if (it.hasFocus) firstHasFocus = true }
     BackHandler(enabled = menu == null) { /* головний екран: «Назад» нікуди не веде */ }
 
     val scheme = if (pal.light) lightColorScheme(primary = pal.primary, surface = pal.card, onSurface = pal.text)
     else darkColorScheme(primary = pal.primary, surface = pal.card, onSurface = pal.text)
     MaterialTheme(colorScheme = scheme) {
-        BoxWithConstraints(Modifier.fillMaxSize().background(pal.bg)) {
+        BoxWithConstraints(
+            Modifier
+                .fillMaxSize()
+                .background(pal.bg)
+                // коли фокус заходить на екран (запуск, повернення з програми) — одразу на першу картку, а не на кнопку вгорі
+                .focusProperties { enter = { if (firstAttached) first else FocusRequester.Default } }
+                .focusGroup(),
+        ) {
             val side = maxWidth * 0.05f
             val gap = 16.dp
             val appW: Dp = ((maxWidth - side * 2 - gap * 5) / 6).coerceIn(100.dp, 200.dp)
