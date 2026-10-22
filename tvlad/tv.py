@@ -203,6 +203,13 @@ class TV:
             return False
         return "error" not in out.lower() and "exception" not in out.lower() and "unknown" not in out.lower()
 
+    def reboot(self) -> None:
+        """Повний перезапуск (телевізор місяцями лише «спить» — пам'ять засмічується)."""
+        try:
+            self.adb.run(["-s", self.adb.serial, "reboot"], timeout=20)
+        except AdbError:
+            pass
+
     def kill_background(self) -> None:
         self.sh("am kill-all")
 

@@ -52,6 +52,38 @@ KNOWN: dict[str, Known] = {
     "com.android.email": Known("Пошта", GROUP_SAFE),
     "com.android.browser": Known("Старий браузер", GROUP_SAFE),
     "com.google.android.apps.tv.dreamx.dreams": Known("Заставка Google TV", GROUP_SAFE),
+    # ── телевізори KIVI (Realtek/Hikeen) — за звітом 40FR55BU ──
+    "com.adups.fota": Known("Adups FOTA (оновлення «повітрям»)", GROUP_SAFE,
+                            "Нових прошивок для моделі вже не буде; сервіс відомий збором даних", True),
+    "com.adups.fota.sysoper": Known("Adups FOTA (служба)", GROUP_SAFE, "Частина Adups FOTA", True),
+    "com.redhotapp.kiviupdate": Known("Оновлення KIVI", GROUP_SAFE, "Тримає ~23 МБ пам'яті; прошивку можна поставити з флешки", True),
+    "com.realsil.ota": Known("Realtek OTA (оновлення)", GROUP_SAFE, "Оновлення прошивки Realtek", True),
+    "com.google.android.leanbacklauncher.partnercustomizer": Known("Налаштування лаунчера Google", GROUP_SAFE,
+                                                                   "Для стандартного лаунчера Google, якого тут немає", True),
+    "com.google.android.leanbacklauncher.partnerwidget": Known("Віджет лаунчера Google", GROUP_SAFE, "Для лаунчера Google", True),
+    "com.google.android.tvsetup.partnercustomizer": Known("Налаштування майстра Google TV", GROUP_SAFE, "Потрібне лише при першому запуску", True),
+    "com.google.android.instantapps.supervisor": Known("Миттєві програми Google", GROUP_SAFE, "На телевізорі не використовується", True),
+    "com.google.android.apps.turbo": Known("Device Health Services", GROUP_SAFE, "Економія батареї — телевізору не потрібно", True),
+    "com.google.android.syncadapters.contacts": Known("Синхронізація контактів Google", GROUP_SAFE, "", True),
+    "com.google.android.syncadapters.calendar": Known("Синхронізація календаря Google", GROUP_SAFE, "", True),
+    "com.google.android.printservice.recommendation": Known("Підбір служб друку", GROUP_SAFE, "", True),
+    "com.google.android.tv.bugreportsender": Known("Надсилання звітів про збої", GROUP_SAFE, "", True),
+    "com.google.android.backuptransport": Known("Резервне копіювання Google", GROUP_SAFE, "", True),
+    "com.realtek.avcapture.test": Known("Тестова програма Realtek", GROUP_SAFE, "Залишилась із заводу", True),
+    "com.realtek.camera": Known("Камера", GROUP_SAFE, "У телевізора немає камери", True),
+    "com.android.soundrecorder": Known("Диктофон", GROUP_SAFE, "", True),
+    "com.android.wallpaper.livepicker": Known("Живі шпалери", GROUP_SAFE, "", True),
+    "com.kivi.authorizer": Known("Акаунт KIVI", GROUP_SAFE),
+    "com.teamviewer.quicksupport.market": Known("TeamViewer QuickSupport", GROUP_SAFE, "Віддалена допомога"),
+    "com.funshion.airplay": Known("AirPlay (Funshion)", GROUP_CAREFUL, "Трансляція з iPhone/Mac"),
+    "com.funshion.tvdlnarender": Known("DLNA-трансляція (Funshion)", GROUP_CAREFUL, "«Відтворити на телевізорі» з телефона"),
+    "com.wezom.kiviremoteserver": Known("KIVI Remote (керування з телефона)", GROUP_CAREFUL,
+                                       "Їсть ~30 МБ і процесор; вимикайте, якщо не керуєте телевізором з телефона"),
+    "com.rtk.android.miracast": Known("Miracast (дублювання екрана телефона)", GROUP_CAREFUL, "Потрібен для показу екрана телефона"),
+    "net.megogo.tv.preinstall": Known("MEGOGO", GROUP_APPS),
+    "org.smarttube.stable": Known("SmartTube", GROUP_USER, "YouTube без реклами"),
+    "org.smarttube.beta": Known("SmartTube Beta", GROUP_USER, "YouTube без реклами"),
+    "org.videolan.vlc": Known("VLC", GROUP_APPS, "Відеоплеєр для файлів з флешки"),
     # ── програми ──
     "com.google.android.youtube.tv": Known("YouTube", GROUP_APPS),
     "com.google.android.youtube.tvmusic": Known("YouTube Music", GROUP_APPS),
@@ -157,7 +189,8 @@ AOSP_NS = ("android.", "com.android.", "com.google.", "androidx.")
 
 PROJECTIVY = "com.spocky.projengmenu"
 LAD = "ua.x44to.lad"
-SMARTTUBE_PKGS = ("com.teamsmart.videomanager.tv", "com.liskovsoft.smarttubetv.beta", "com.liskovsoft.smarttubetv")
+SMARTTUBE_PKGS = ("org.smarttube.stable", "org.smarttube.beta", "com.teamsmart.videomanager.tv",
+                  "com.liskovsoft.smarttubetv.beta", "com.liskovsoft.smarttubetv")
 SMARTTUBE_URL = "https://github.com/yuliskov/SmartTube/releases/download/latest/smarttube_stable.apk"
 STOCK_YOUTUBE = "com.google.android.youtube.tv"
 STOCK_LAUNCHERS = ("com.google.android.tvlauncher", "com.google.android.leanbacklauncher",

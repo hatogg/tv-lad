@@ -354,6 +354,11 @@ class SpeedPage(Page):
         self.btn_deep = button("Запустити", slot=self.deep)
         deep.row(self.btn_deep, self.res_deep)
         grid.addWidget(deep, 1, 1)
+        rb = Card("Перезапуск", "Телевізор у режимі очікування не вимикається насправді — за тижні пам'ять засмічується. "
+                                "Повний перезапуск (≈ 1–2 хв) повертає швидкість. Варто робити раз на тиждень.")
+        self.res_rb = label("", "ok")
+        rb.row(button("Перезапустити телевізор", slot=self.reboot), self.res_rb)
+        grid.addWidget(rb, 2, 0, 1, 2)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
         self.lay.addLayout(grid)
@@ -391,6 +396,13 @@ class SpeedPage(Page):
 
     def kill(self):
         self.win.run(self.win.tv.kill_background, lambda _: self.res_bg.setText("Готово ✓"), self.win.error)
+
+    def reboot(self):
+        if not self.win.confirm("Перезапустити телевізор?", "Телевізор вимкнеться й увімкнеться знову (1–2 хвилини). "
+                                "Після цього підключіться знову на сторінці «Підключення»."):
+            return
+        self.win.run(self.win.tv.reboot, lambda _: (self.res_rb.setText("Перезапускається… підключіться за 2 хвилини"),
+                                                     self.win.disconnect()), self.win.error)
 
     def deep(self):
         self.btn_deep.setEnabled(False)
