@@ -169,7 +169,6 @@ if lad_apk and os.path.exists(lad_apk):
         tv.sh("input keyevent --longpress KEYCODE_DPAD_CENTER")
         time.sleep(2)
         screencap("lad-3-input-menu")
-        tv.sh("input keyevent KEYCODE_BACK") if False else None
         dump = ui_text()
         import re as _re
         foc = _re.findall(r'<node[^>]*focused="true"[^>]*>', dump)
