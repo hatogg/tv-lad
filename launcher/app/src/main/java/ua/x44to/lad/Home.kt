@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -57,7 +56,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,7 +65,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -187,25 +184,8 @@ fun LadHome(state: LadState, act: Activity) {
     val pal = Palette(state.light, ACCENTS[state.wallpaper.coerceIn(0, ACCENTS.size - 1)])
     var menu by remember { mutableStateOf<Menu?>(null) }
     val first = remember { FocusRequester() }
-    val list = rememberLazyListState()
-    val inRow = rememberLazyListState()
-    val favRow = rememberLazyListState()
     var firstHasFocus by remember { mutableStateOf(false) }
-    // яка картка зараз у фокусі; на Android 9+ кнопки вгорі стають доступні лише після того, як фокус уже побував
-    // на картках, інакше система ставить початковий фокус на «Налаштування ТВ». На Android 7–8 так не роблять:
-    // там фокус на картку ставимо самі, і без доступних кнопок він не встановлюється.
-    var focusedKey by remember { mutableStateOf<String?>(null) }
-    var cardSeen by remember { mutableStateOf(false) }
-    var handledTick by remember { mutableIntStateOf(state.homeTick) }
-    val firstMod = Modifier.focusRequester(first).onFocusChanged { firstHasFocus = it.hasFocus }
-    fun track(key: String) = Modifier.onFocusChanged {
-        if (it.isFocused) {
-            focusedKey = key
-            cardSeen = true
-        } else if (focusedKey == key) {
-            focusedKey = null
-        }
-    }
+    val firstMod = Modifier.focusRequester(first).onFocusChanged { if (it.hasFocus) firstHasFocus = true }
     BackHandler(enabled = menu == null) { /* головний екран: «Назад» нікуди не веде */ }
 
     val scheme = if (pal.light) lightColorScheme(primary = pal.primary, surface = pal.card, onSurface = pal.text)
@@ -223,42 +203,38 @@ fun LadHome(state: LadState, act: Activity) {
             val favApps = state.favorites.mapNotNull { p -> state.apps.firstOrNull { it.pkg == p } }
             val rest = state.apps.filter { it.pkg !in state.favorites && it.pkg !in state.hiddenApps }
 
-            val hasCards = shownInputs.isNotEmpty() || favApps.isNotEmpty() || rest.isNotEmpty()
-            LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(top = 28.dp, bottom = 48.dp)) {
-                // ключі — щоб картки не створювались заново, коли з'являються входи чи нові програми (інакше губиться фокус)
-                item(key = "header") {
-                    Header(pal, side, buttonsFocusable = cardSeen || !hasCards || android.os.Build.VERSION.SDK_INT < 28, onTv = { openSystemSettings(act) }, onLad = { menu = Menu.Settings })
-                }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 28.dp, bottom = 48.dp)) {
+                item { Header(pal, side, onTv = { openSystemSettings(act) }, onLad = { menu = Menu.Settings }) }
                 if (shownInputs.isNotEmpty()) {
-                    item(key = "sec:in") { Section("Входи", pal, side) }
-                    item(key = "row:in") {
-                        LazyRow(state = inRow, contentPadding = PaddingValues(horizontal = side, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    item { Section("Входи", pal, side) }
+                    item {
+                        LazyRow(contentPadding = PaddingValues(horizontal = side, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
                             items(shownInputs, key = { "in:" + it.id }) { i ->
-                                val m = (if (i == shownInputs.first()) firstMod else Modifier).then(track("in:" + i.id))
+                                val m = if (i == shownInputs.first()) firstMod else Modifier
                                 InputCard(state, i, pal, inW, inH, m, onClick = { switchTo(act, i, state.switchMode) }, onLong = { menu = Menu.ForInput(i) })
                             }
                         }
                     }
                 }
                 if (favApps.isNotEmpty()) {
-                    item(key = "sec:fav") { Section("Улюблене", pal, side) }
-                    item(key = "row:fav") {
-                        LazyRow(state = favRow, contentPadding = PaddingValues(horizontal = side, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    item { Section("Улюблене", pal, side) }
+                    item {
+                        LazyRow(contentPadding = PaddingValues(horizontal = side, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
                             items(favApps, key = { "fav:" + it.key }) { a ->
-                                val m = (if (shownInputs.isEmpty() && a == favApps.first()) firstMod else Modifier).then(track("fav:" + a.key))
+                                val m = if (shownInputs.isEmpty() && a == favApps.first()) firstMod else Modifier
                                 AppCard(state, a, pal, appW, appH, m, onClick = { launch(act, a) }, onLong = { menu = Menu.ForApp(a) })
                             }
                         }
                     }
                 }
                 if (rest.isNotEmpty()) {
-                    item(key = "sec:apps") { Section("Програми", pal, side) }
+                    item { Section("Програми", pal, side) }
                     val rows = rest.chunked(6)
-                    items(rows.size, key = { r -> "apps:" + rows[r].first().key }) { r ->
+                    items(rows.size) { r ->
                         Row(Modifier.padding(horizontal = side, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
                             for (a in rows[r]) {
                                 val isFirst = shownInputs.isEmpty() && favApps.isEmpty() && r == 0 && a == rows[0].first()
-                                val m = (if (isFirst) firstMod else Modifier).then(track("app:" + a.key))
+                                val m = if (isFirst) firstMod else Modifier
                                 AppCard(state, a, pal, appW, appH, m, onClick = { launch(act, a) }, onLong = { menu = Menu.ForApp(a) })
                             }
                         }
@@ -266,30 +242,18 @@ fun LadHome(state: LadState, act: Activity) {
                 }
             }
         }
-        // фокус — на першу картку: після запуску, коли з'явились дані, і після натискання «Додому».
-        // Якщо людина вже стоїть на якійсь картці (напр., встановилась нова програма) — не смикаємо.
-        val anyCards = state.inputs.any { state.hidden[it.id] != true } || state.apps.isNotEmpty()
-        LaunchedEffect(anyCards, state.homeTick) {
-            if (!anyCards) return@LaunchedEffect
-            val homePressed = state.homeTick != handledTick
-            handledTick = state.homeTick
-            if (focusedKey != null && !homePressed) return@LaunchedEffect
-            if (homePressed) {
-                menu = null
-                list.scrollToItem(0)
-                inRow.scrollToItem(0)
-                favRow.scrollToItem(0)
-            }
-            repeat(20) {
-                delay(100)
+        // фокус — на першу картку (на деяких Android система ставить його на першу кнопку зверху)
+        LaunchedEffect(state.inputs.size, state.apps.size) {
+            if (state.inputs.isEmpty() && state.apps.isEmpty()) return@LaunchedEffect
+            repeat(15) {
+                delay(120)
                 try {
                     first.requestFocus()
+                    if (firstHasFocus) return@LaunchedEffect
                 } catch (e: IllegalStateException) {
-                    // картка ще не на екрані
+                    // ще не на екрані
                 }
-                if (firstHasFocus) return@LaunchedEffect
             }
-            cardSeen = true // не вдалося (картки не на екрані) — хай кнопки вгорі теж будуть доступні
         }
         when (val m = menu) {
             is Menu.ForInput -> InputMenu(state, pal, m.input) { menu = null }
@@ -301,23 +265,23 @@ fun LadHome(state: LadState, act: Activity) {
 }
 
 @Composable
-private fun Header(pal: Palette, side: Dp, buttonsFocusable: Boolean, onTv: () -> Unit, onLad: () -> Unit) {
+private fun Header(pal: Palette, side: Dp, onTv: () -> Unit, onLad: () -> Unit) {
     val now = rememberNow()
     Row(Modifier.fillMaxWidth().padding(horizontal = side).padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(Ua.time(now), color = pal.text, fontSize = 40.sp, fontWeight = FontWeight.Light)
         Spacer(Modifier.width(18.dp))
         Text(Ua.date(now).replaceFirstChar { it.uppercase() }, color = pal.dim, fontSize = 17.sp, modifier = Modifier.weight(1f))
-        RoundButton(Icons.Rounded.Settings, "Налаштування ТВ", pal, buttonsFocusable, onTv)
+        RoundButton(Icons.Rounded.Settings, "Налаштування ТВ", pal, onTv)
         Spacer(Modifier.width(12.dp))
-        RoundButton(Icons.Rounded.Tune, "Налаштування «Лад»", pal, buttonsFocusable, onLad)
+        RoundButton(Icons.Rounded.Tune, "Налаштування «Лад»", pal, onLad)
     }
 }
 
 @Composable
-private fun RoundButton(icon: ImageVector, desc: String, pal: Palette, focusable: Boolean, onClick: () -> Unit) {
+private fun RoundButton(icon: ImageVector, desc: String, pal: Palette, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(48.dp).focusProperties { canFocus = focusable }.tvPress(onClick, onClick),
+        modifier = Modifier.size(48.dp).tvPress(onClick, onClick),
         shape = ClickableSurfaceDefaults.shape(CircleShape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         colors = ClickableSurfaceDefaults.colors(

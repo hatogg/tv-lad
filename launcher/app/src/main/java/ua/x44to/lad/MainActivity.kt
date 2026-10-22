@@ -31,8 +31,6 @@ class LadState(private val ctx: Context, var demo: Boolean) {
     var switchMode by mutableIntStateOf(prefs.switchMode)
     var light by mutableStateOf(prefs.lightTheme)
     var hintShown by mutableStateOf(prefs.hintShown)
-    /** Росте з кожним натисканням «Додому», коли «Лад» уже відкритий: екран повертається нагору, на першу картку. */
-    var homeTick by mutableIntStateOf(0)
     private val io = Executors.newSingleThreadExecutor()
 
     private var lastReload = 0L
@@ -188,7 +186,6 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == Intent.ACTION_MAIN) state.homeTick++
         if (intent.getBooleanExtra(EXTRA_DEMO, false) && !state.demo) {
             state.demo = true
             refresh(force = true)
