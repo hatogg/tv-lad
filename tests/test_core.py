@@ -37,6 +37,12 @@ class Parse(unittest.TestCase):
                "priority=-1000\ncom.android.tv.settings/.FallbackHome\n")
         self.assertEqual(parse_activities(out), ["com.google.android.tvlauncher", "com.android.tv.settings"])
 
+    def test_activities_long_form(self):
+        out = ("priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true\n"
+               "  ActivityInfo:\n    name=com.google.android.leanbacklauncher.MainActivity\n"
+               "    packageName=com.google.android.leanbacklauncher\n    enabled=true\n")
+        self.assertEqual(parse_activities(out), ["com.google.android.leanbacklauncher"])
+
     def test_friendly(self):
         self.assertIn("відхилив", friendly("failed to connect to 192.168.1.2:5555: Connection refused"))
         self.assertIn("не відповідає", friendly("cannot connect to 10.0.0.9:5555: Connection timed out"))

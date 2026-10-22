@@ -55,10 +55,13 @@ def parse_meminfo(out: str) -> tuple[int, int]:
 
 
 def parse_activities(out: str) -> list[str]:
-    """Пакети з виводу `cmd package query-activities/resolve-activity --brief`."""
+    """Пакети з виводу `cmd package query-activities/resolve-activity` (коротка форма --brief
+    або повна, як на Android 7: рядки «packageName=…»)."""
     pkgs = []
     for line in out.splitlines():
         m = re.match(r"^\s*([A-Za-z0-9_.]+)/([A-Za-z0-9_.$]+)\s*$", line)
+        if not m:
+            m = re.match(r"^\s*packageName=([A-Za-z0-9_.]+)\s*$", line)
         if m and m.group(1) not in pkgs:
             pkgs.append(m.group(1))
     return pkgs
@@ -200,15 +203,22 @@ class TV:
         return self.sh("cmd package bg-dexopt-job", timeout=3600).strip()
 
     # ── головний екран ──
+    def _query(self, what: str) -> str:
+        """query-activities / resolve-activity; на старих Android без «--brief»."""
+        out = self.sh(f"cmd package {what} --brief {HOME_INTENT}")
+        if not parse_activities(out):
+            out = self.sh(f"cmd package {what} {HOME_INTENT}")
+        if not parse_activities(out):
+            out = self.sh(f"pm {what} {HOME_INTENT}")
+        return out
+
     def home_candidates(self) -> list[str]:
-        out = self.sh(f"cmd package query-activities --brief {HOME_INTENT}")
-        if "/" not in out:
-            out = self.sh(f"pm query-activities --brief {HOME_INTENT}")
+        out = self._query("query-activities")
         return [p for p in parse_activities(out) if p not in catalog.FALLBACK_HOME_PKGS and p != "android"]
 
     def set_home_activity(self, pkg: str) -> bool:
         """Зробити [pkg] головним екраном за замовчуванням (Android 7+). False — система не дозволила."""
-        out = self.sh(f"cmd package query-activities --brief {HOME_INTENT}")
+        out = self._query("query-activities")
         comp = next((c for c in parse_components(out) if c.split("/")[0] == check_pkg(pkg)), None)
         if not comp:
             return False
@@ -217,11 +227,12 @@ class TV:
 
     def current_home(self) -> str | None:
         """Пакет головного екрана, що відкривається кнопкою Home; None — система питатиме, який обрати."""
-        out = self.sh(f"cmd package resolve-activity --brief {HOME_INTENT}")
+        out = self._query("resolve-activity")
         pk = parse_activities(out)
         if not pk:
             return None
-        p = pk[-1]
+        # коротка форма: останній рядок «пакет/активність»; повна — перший «packageName=»
+        p = pk[-1] if "/" in out else pk[0]
         if p == "android":  # ResolverActivity — кілька варіантів без вибору за замовчуванням
             return None
         return p
