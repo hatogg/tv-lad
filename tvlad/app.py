@@ -54,6 +54,11 @@ QComboBox QAbstractItemView {{ background: #1A1E25; border: 1px solid #2C3440; s
 QTreeWidget, QListWidget {{ background: #151920; border: 1px solid #232934; border-radius: 12px; padding: 4px; alternate-background-color: #171B22; }}
 QTreeWidget::item, QListWidget::item {{ padding: 5px 2px; }}
 QTreeWidget::item:selected {{ background: #1F3532; }}
+QTreeView::indicator {{ width: 16px; height: 16px; border-radius: 4px; border: 2px solid #5A6472; background: #12151A; }}
+QTreeView::indicator:checked {{ background: {ACCENT}; border-color: {ACCENT}; }}
+QTreeView::indicator:hover {{ border-color: {ACCENT}; }}
+QScrollBar:horizontal {{ background: transparent; height: 10px; }}
+QScrollBar::handle:horizontal {{ background: #2C3440; border-radius: 5px; min-width: 30px; }}
 QHeaderView::section {{ background: #151920; color: #7D8796; border: none; border-bottom: 1px solid #232934; padding: 6px; }}
 QProgressBar {{ background: #1A1E25; border: none; border-radius: 4px; height: 6px; }}
 QProgressBar::chunk {{ background: {ACCENT}; border-radius: 4px; }}
@@ -712,7 +717,7 @@ class RestorePage(Page):
     def __init__(self, win):
         super().__init__(win, "Відновлення", "Усе, що «ТВ Лад» змінював на цьому телевізорі, записано — і можна повернути одним натисканням.")
         self.summary = Card("Що змінено")
-        self.sum_text = label("", "muted")
+        self.sum_text = label("", "muted", False)
         self.summary.lay.addWidget(self.sum_text)
         self.btn = button("Відновити все як було", "primary", self.restore)
         self.summary.row(self.btn)
@@ -730,8 +735,8 @@ class RestorePage(Page):
         if h.data.get("animations"):
             parts.append("• анімації змінено")
         if h.disabled:
-            parts.append("• вимкнено програм: " + str(len(h.disabled)) + " — " + ", ".join(catalog.pretty(p) for p in h.disabled[:8]) +
-                         ("…" if len(h.disabled) > 8 else ""))
+            names = ", ".join(catalog.pretty(p) for p in h.disabled)
+            parts.append("• вимкнено програм: " + str(len(h.disabled)) + " — " + (names if len(names) < 90 else names[:88] + "…"))
         if h.launchers:
             parts.append("• стандартний головний екран вимкнено")
         self.sum_text.setText("\n".join(parts) if parts else "Нічого не змінено — телевізор у початковому стані.")
