@@ -33,6 +33,12 @@ def step(name, fn):
     except Exception:  # noqa: BLE001
         ok = False
         lines.append(f"FAIL {name}\n{traceback.format_exc()}")
+        try:
+            crash = tv.sh("logcat -d -b crash 2>/dev/null | tail -60")
+            if "ua.x44to.lad" in crash:
+                lines.append("     ПАДІННЯ «Лад»:\n" + crash)
+        except Exception:  # noqa: BLE001
+            pass
         return None
 
 
@@ -142,39 +148,51 @@ def lad_alive():
 
 
 if lad_apk and os.path.exists(lad_apk):
-    def lad_install():
-        act.install_lad(lad_apk)
-        assert tv.current_home() == catalog.LAD, tv.current_home()
-        time.sleep(4)
-        assert lad_alive(), "«Лад» не запустився"
-        screencap("lad-1-home")
-        return "встановлено й зроблено головним"
-
-    step("«Лад»: встановлення й головний екран", lad_install)
-
     def ui_text():
         tv.sh("uiautomator dump /sdcard/ui.xml >/dev/null 2>&1")
         return tv.sh("cat /sdcard/ui.xml")
 
+    def focused(dump):
+        import re
+        f = re.findall(r'<node[^>]*focused="true"[^>]*>', dump)
+        return f[0][:260] if f else "—"
+
+    def texts(dump):
+        import re
+        return " | ".join(sorted(set(re.findall(r'text="([^"]+)"', dump)))[:40])
+
+    def lad_install():
+        act.install_lad(lad_apk)
+        assert tv.current_home() == catalog.LAD, tv.current_home()
+        time.sleep(5)
+        assert lad_alive(), "«Лад» не запустився"
+        screencap("lad-1-home")
+        # свіжий запуск: фокус має бути на першій картці, а не на кнопці «Налаштування ТВ» угорі
+        tv.sh("input keyevent --longpress KEYCODE_DPAD_CENTER")
+        time.sleep(2)
+        d = ui_text()
+        assert "Сховати з екрана" in d, "після запуску фокус не на картці програми; у фокусі: " + focused(d) + "; екран: " + texts(d)
+        tv.sh("input keyevent KEYCODE_BACK")
+        time.sleep(1)
+        assert tv.current_home() == catalog.LAD
+        return "встановлено, зроблено головним, фокус на першій картці"
+
+    step("«Лад»: встановлення, головний екран, початковий фокус", lad_install)
+
     def lad_demo():
         tv.sh("am start -n ua.x44to.lad/.MainActivity --ez lad.demo true")
-        time.sleep(5)
+        time.sleep(4)
+        # «Додому» повертає нагору, на першу картку (тепер це перший вхід)
+        tv.sh("input keyevent KEYCODE_HOME")
+        time.sleep(2)
         tv.sh("dumpsys gfxinfo ua.x44to.lad reset")
-        d0 = ui_text()
-        import re as _re0
-        f0 = _re0.findall(r'<node[^>]*focused="true"[^>]*>', d0)
-        lines.append("     фокус після запуску: " + (f0[0][:300] if f0 else "—"))
         screencap("lad-2-shelf-input")
         # утримання OK на першому вході → меню → вибрати «Xbox»
         tv.sh("input keyevent --longpress KEYCODE_DPAD_CENTER")
         time.sleep(2)
         screencap("lad-3-input-menu")
         dump = ui_text()
-        import re as _re
-        foc = _re.findall(r'<node[^>]*focused="true"[^>]*>', dump)
-        lines.append("     у фокусі: " + (foc[0][:300] if foc else "—"))
-        assert "що підключено" in dump, "меню входу не відкрилось від утримання OK; екран: " + " | ".join(
-            sorted(set(__import__("re").findall(r'text="([^"]+)"', dump)))[:40])
+        assert "що підключено" in dump, "меню входу не відкрилось від утримання OK; у фокусі: " + focused(dump) + "; екран: " + texts(dump)
         tv.sh("input keyevent KEYCODE_DPAD_DOWN")
         tv.sh("input keyevent KEYCODE_DPAD_CENTER")
         time.sleep(2)
