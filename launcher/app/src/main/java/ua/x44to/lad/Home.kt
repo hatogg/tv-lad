@@ -64,6 +64,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -183,6 +184,8 @@ fun LadHome(state: LadState, act: Activity) {
     val pal = Palette(state.light, ACCENTS[state.wallpaper.coerceIn(0, ACCENTS.size - 1)])
     var menu by remember { mutableStateOf<Menu?>(null) }
     val first = remember { FocusRequester() }
+    var firstHasFocus by remember { mutableStateOf(false) }
+    val firstMod = Modifier.focusRequester(first).onFocusChanged { if (it.hasFocus) firstHasFocus = true }
     BackHandler(enabled = menu == null) { /* головний екран: «Назад» нікуди не веде */ }
 
     val scheme = if (pal.light) lightColorScheme(primary = pal.primary, surface = pal.card, onSurface = pal.text)
@@ -193,7 +196,7 @@ fun LadHome(state: LadState, act: Activity) {
             val gap = 16.dp
             val appW: Dp = ((maxWidth - side * 2 - gap * 5) / 6).coerceIn(100.dp, 200.dp)
             val appH: Dp = appW * 0.5625f
-            val inW: Dp = appW * 1.35f
+            val inW: Dp = ((maxWidth - side * 2 - gap * 3) / 4).coerceIn(160.dp, 300.dp)
             val inH: Dp = appH * 1.2f
 
             val shownInputs = state.inputs.filter { state.hidden[it.id] != true }
@@ -207,7 +210,7 @@ fun LadHome(state: LadState, act: Activity) {
                     item {
                         LazyRow(contentPadding = PaddingValues(horizontal = side, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
                             items(shownInputs, key = { "in:" + it.id }) { i ->
-                                val m = if (i == shownInputs.first()) Modifier.focusRequester(first) else Modifier
+                                val m = if (i == shownInputs.first()) firstMod else Modifier
                                 InputCard(state, i, pal, inW, inH, m, onClick = { switchTo(act, i, state.switchMode) }, onLong = { menu = Menu.ForInput(i) })
                             }
                         }
@@ -218,7 +221,7 @@ fun LadHome(state: LadState, act: Activity) {
                     item {
                         LazyRow(contentPadding = PaddingValues(horizontal = side, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
                             items(favApps, key = { "fav:" + it.key }) { a ->
-                                val m = if (shownInputs.isEmpty() && a == favApps.first()) Modifier.focusRequester(first) else Modifier
+                                val m = if (shownInputs.isEmpty() && a == favApps.first()) firstMod else Modifier
                                 AppCard(state, a, pal, appW, appH, m, onClick = { launch(act, a) }, onLong = { menu = Menu.ForApp(a) })
                             }
                         }
@@ -231,7 +234,7 @@ fun LadHome(state: LadState, act: Activity) {
                         Row(Modifier.padding(horizontal = side, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
                             for (a in rows[r]) {
                                 val isFirst = shownInputs.isEmpty() && favApps.isEmpty() && r == 0 && a == rows[0].first()
-                                val m = if (isFirst) Modifier.focusRequester(first) else Modifier
+                                val m = if (isFirst) firstMod else Modifier
                                 AppCard(state, a, pal, appW, appH, m, onClick = { launch(act, a) }, onLong = { menu = Menu.ForApp(a) })
                             }
                         }
@@ -239,11 +242,14 @@ fun LadHome(state: LadState, act: Activity) {
                 }
             }
         }
+        // фокус — на першу картку (на деяких Android система ставить його на першу кнопку зверху)
         LaunchedEffect(state.inputs.size, state.apps.size) {
-            if (state.inputs.isNotEmpty() || state.apps.isNotEmpty()) {
-                delay(150)
+            if (state.inputs.isEmpty() && state.apps.isEmpty()) return@LaunchedEffect
+            repeat(15) {
+                delay(120)
                 try {
                     first.requestFocus()
+                    if (firstHasFocus) return@LaunchedEffect
                 } catch (e: IllegalStateException) {
                     // ще не на екрані
                 }
